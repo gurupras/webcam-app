@@ -4,9 +4,13 @@ const ProxyMediaStream = require('@gurupras/proxy-media-stream')
 
 const LastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
 
+try {
+  Vue.config.productionTip = false
+} catch (e) {
+}
+
 class WebcamApp {
-  constructor (lastUserMediaConstraintsKey = LastUserMediaConstraintsKey) {
-    Vue.config.productionTip = false
+  constructor (lastUserMediaConstraintsKey = LastUserMediaConstraintsKey, defaultConstraints = defaultUserMediaConstraints()) {
     return new Vue({
       computed: {
         lastUserMediaConstraintsKey () {
@@ -20,7 +24,7 @@ class WebcamApp {
           selfWebcamStream: undefined,
           micPermissionState: 'prompt',
           cameraPermissionState: 'prompt',
-          lastUserMediaConstraints: defaultUserMediaConstraints()
+          lastUserMediaConstraints: defaultConstraints
         }
       },
       watch: {
@@ -126,7 +130,6 @@ class WebcamApp {
           }
         },
         async requestMicrophone () {
-          debugger
           const { lastUserMediaConstraints } = this
           const defaults = await this.defaultUserMediaConstraints()
           if (!lastUserMediaConstraints.audio) {
@@ -231,12 +234,11 @@ class WebcamApp {
         },
         stopMicrophone () {
           this.updateAudioStream()
-        },
-        defaultUserMediaConstraints () {
-          return defaultUserMediaConstraints()
         }
       },
       created () {
+        this.setDefaultUserMediaConstraints(defaultConstraints)
+
         let lastUsedConstraints = localStorage.getItem(LastUserMediaConstraintsKey)
         if (lastUsedConstraints) {
           try {

@@ -1,4 +1,4 @@
-import { FakeMediaStream, FakeMediaTrack, LocalStorageMock, vueWaitForWatch as waitForWatch, testForEvent, testForNoEvent } from '@gurupras/test-helpers' // Must be first so that global.MediaStream is updated
+import { FakeMediaStream, FakeMediaTrack, LocalStorageMock, testForEvent, testForNoEvent } from '@gurupras/test-helpers' // Must be first so that global.MediaStream is updated
 import ProxyMediaStream from '@gurupras/proxy-media-stream'
 import deepmerge from 'deepmerge'
 
@@ -35,6 +35,13 @@ describe('WebcamApp', () => {
   })
 
   describe('Watch', () => {
+    async function waitForWatch (obj, field, setter) {
+      const promise = testForEvent(obj, 'watch')
+      setter()
+      await expect(promise).toResolve()
+      const { path } = await promise
+      expect(path).toEqual(field)
+    }
     test('Changes to \'lastUserMediaConstraints\' are saved in localStorage', async () => {
       let constraints = {}
       await waitForWatch(app, 'lastUserMediaConstraints', () => { app.lastUserMediaConstraints = constraints })
@@ -51,7 +58,7 @@ describe('WebcamApp', () => {
 
     test('Changes to \'selfWebcamStream\' are emitted via \'webcam-stream\' event', async () => {
       const stream = new FakeMediaStream(null, { numAudioTracks: 2, numVideoTracks: 2 })
-      const promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      const promise = testForEvent(app, 'webcam-stream')
       await waitForWatch(app, 'selfWebcamStream', () => { app.selfWebcamStream = stream })
       await expect(promise).toResolve()
     })
@@ -64,11 +71,11 @@ describe('WebcamApp', () => {
 
       app.selfVideoStream = videoStream
       app.selfAudioStream = audioStream
-      promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = testForEvent(app, 'webcam-stream')
       app.selfWebcamStream = webcamStream
       await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
 
-      promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = testForEvent(app, 'webcam-stream')
       app.selfVideoStream = undefined
       app.selfAudioStream = undefined
       await expect(promise).resolves.toEqual({ newStream: undefined, oldStream: webcamStream })
@@ -81,19 +88,19 @@ describe('WebcamApp', () => {
 
       app.selfVideoStream = videoStream
       app.selfAudioStream = audioStream
-      promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = testForEvent(app, 'webcam-stream')
       app.selfWebcamStream = webcamStream
       await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
 
-      promise = testForNoEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = testForNoEvent(app, 'webcam-stream')
       await expect(promise).toResolve()
 
-      promise = testForNoEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = testForNoEvent(app, 'webcam-stream')
       app.selfVideoStream = undefined
       await expect(promise).toResolve()
       app.selfVideoStream = videoStream
 
-      promise = testForNoEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = testForNoEvent(app, 'webcam-stream')
       app.selfAudioStream = undefined
       await expect(promise).toResolve()
     })

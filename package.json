@@ -34,8 +34,9 @@
     "jest-extended": "^0.11.5"
   },
   "dependencies": {
-    "@gurupras/proxy-media-stream": "^0.1.0",
+    "@gurupras/proxy-media-stream": "^0.1.1",
     "deepmerge": "^4.2.2",
+    "on-change": "^2.0.1",
     "vue": "^2.6.11"
   }
 }

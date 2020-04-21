@@ -100,17 +100,24 @@ class WebcamApp {
             case 'TypeError':
               msg = 'Bad constraints.'
           }
-          this.$emit('error', `Could not access ${device}: ${msg}`)
+          err.message = msg
+          // TODO: Remove the $emit call in v1.0
+          this.$emit('error', err)
+          throw err
         },
         async requestCamera () {
           const { lastUserMediaConstraints } = this
+          const defaults = this.defaultUserMediaConstraints()
+          if (!lastUserMediaConstraints.video) {
+            lastUserMediaConstraints.video = defaults.video
+          }
+          if (!this.selfAudioStream || this.selfAudioStream.getTracks().length === 0) {
+            // No existing audio stream. Don't request one now.
+            lastUserMediaConstraints.audio = false
+          }
           try {
-            const constraints = {
-              video: lastUserMediaConstraints.video || true, // We definitely want video
-              audio: this.selfAudioStream && this.selfAudioStream.getTracks().length > 0 ? lastUserMediaConstraints.audio || true : false
-            }
             // console.log(`requestCamera: constraints: ${JSON.stringify(constraints)}`)
-            const stream = await navigator.mediaDevices.getUserMedia(constraints)
+            const stream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
             const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
             this.updateVideoStream(videoStream)
             this.updateAudioStream(audioStream)
@@ -119,14 +126,19 @@ class WebcamApp {
           }
         },
         async requestMicrophone () {
+          debugger
           const { lastUserMediaConstraints } = this
+          const defaults = await this.defaultUserMediaConstraints()
+          if (!lastUserMediaConstraints.audio) {
+            lastUserMediaConstraints.audio = defaults.audio
+          }
+          if (!this.selfVideoStream || this.selfVideoStream.getTracks().length === 0) {
+            // No existing video stream. Don't request one now.
+            lastUserMediaConstraints.video = false
+          }
           try {
-            const constraints = {
-              video: this.selfVideoStream && this.selfVideoStream.getTracks().length > 0 ? lastUserMediaConstraints.video || true : false,
-              audio: lastUserMediaConstraints.audio || true // We definitely want audio
-            }
             // console.log(`requestMicrophone: constraints: ${JSON.stringify(constraints)}`)
-            const stream = await navigator.mediaDevices.getUserMedia(constraints)
+            const stream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
             const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
             this.updateVideoStream(videoStream)
             this.updateAudioStream(audioStream)

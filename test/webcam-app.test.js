@@ -176,19 +176,16 @@ describe('WebcamApp', () => {
             combinations.push([{ name: err }, ...dparams])
           }
         }
-        test.each(combinations)('Emits error event on %s for %s', async (err, device, userConstraintsKey, statePropertyName) => {
-          const promise = testForEvent(app, 'error', { vue: true })
-          app.handleError(err, device, userConstraintsKey, statePropertyName)
-          await expect(promise).toResolve()
+        test.each(combinations)('Throws error event on %s for %s', async (err, device, userConstraintsKey, statePropertyName) => {
+          expect(() => app.handleError(err, device, userConstraintsKey, statePropertyName)).toThrow()
         })
         test.each(deviceParams)('NotAllowedError properly updates %s permission state to denied', async (device, userConstraintsKey, statePropertyName) => {
-          await app.handleError({ name: 'NotAllowedError' }, device, userConstraintsKey, statePropertyName)
+          expect(() => app.handleError({ name: 'NotAllowedError' }, device, userConstraintsKey, statePropertyName)).toThrow()
           expect(app[statePropertyName]).toEqual('denied')
         })
         test.each(deviceParams)('OverConstrainedError resets %s constraints to defaults', async (device, userConstraintsKey, statePropertyName) => {
           app.lastUserMediaConstraints[userConstraintsKey] = 'bad'
-          debugger
-          await app.handleError({ name: 'OverconstrainedError' }, device, userConstraintsKey, statePropertyName)
+          expect(() => app.handleError({ name: 'OverconstrainedError' }, device, userConstraintsKey, statePropertyName)).toThrow()
           expect(app.lastUserMediaConstraints).toEqual(app.defaultUserMediaConstraints())
         })
       })
@@ -220,8 +217,8 @@ describe('WebcamApp', () => {
         })
         test('Get both camera and mic streams if selfAudioStream has at least one audio track', async () => {
           app.lastUserMediaConstraints = {
-            video: true,
-            audio: false
+            video: false,
+            audio: true
           }
           app.selfAudioStream = new FakeMediaStream(null, { numAudioTracks: 1 })
           await expect(app.requestCamera()).toResolve()
@@ -232,16 +229,13 @@ describe('WebcamApp', () => {
         })
         describe('Error handling', () => {
           beforeEach(() => {
-            console.error = () => {}
           })
-          test('Emits \'error\' on failure', async () => {
+          test('Throws error on failure', async () => {
             navigator.mediaDevices.getUserMedia = jest.fn().mockRejectedValue({
               name: 'unknown',
               message: 'dummy'
             })
-            const promise = testForEvent(app, 'error', { vue: true, timeout: 100 })
-            await expect(app.requestCamera()).toResolve()
-            await expect(promise).toResolve()
+            await expect(app.requestCamera()).toReject()
             expect(app.selfWebcamStream).toBe(undefined)
             // Ensure that cameraPermissionState did not change
             expect(app.cameraPermissionState).toBe('prompt')
@@ -252,9 +246,7 @@ describe('WebcamApp', () => {
               name: 'NotAllowedError',
               message: 'dummy'
             })
-            const promise = testForEvent(app, 'error', { vue: true, timeout: 100 })
-            await expect(app.requestCamera()).toResolve()
-            await expect(promise).toResolve()
+            await expect(app.requestCamera()).toReject()
             expect(app.selfWebcamStream).toBe(undefined)
             expect(app.cameraPermissionState).toBe('denied')
           })
@@ -288,8 +280,8 @@ describe('WebcamApp', () => {
         })
         test('Get both camera and mic streams if selfVideoStream has at least one video track', async () => {
           app.lastUserMediaConstraints = {
-            video: false,
-            audio: true
+            video: true,
+            audio: false
           }
           app.selfVideoStream = new FakeMediaStream(null, { numVideoTracks: 1 })
           await expect(app.requestMicrophone()).toResolve()
@@ -302,14 +294,12 @@ describe('WebcamApp', () => {
           beforeEach(() => {
             console.error = () => { }
           })
-          test('Emits \'error\' on failure', async () => {
+          test('Throws error on failure', async () => {
             navigator.mediaDevices.getUserMedia = jest.fn().mockRejectedValue({
               name: 'unknown',
               message: 'dummy'
             })
-            const promise = testForEvent(app, 'error', { vue: true, timeout: 100 })
-            await expect(app.requestMicrophone()).toResolve()
-            await expect(promise).toResolve()
+            await expect(app.requestMicrophone()).toReject()
             expect(app.selfWebcamStream).toBe(undefined)
             // Ensure that cameraPermissionState did not change
             expect(app.micPermissionState).toBe('prompt')
@@ -320,9 +310,7 @@ describe('WebcamApp', () => {
               name: 'NotAllowedError',
               message: 'dummy'
             })
-            const promise = testForEvent(app, 'error', { vue: true, timeout: 100 })
-            await expect(app.requestMicrophone()).toResolve()
-            await expect(promise).toResolve()
+            await expect(app.requestMicrophone()).toReject()
             expect(app.selfWebcamStream).toBe(undefined)
             expect(app.micPermissionState).toBe('denied')
           })

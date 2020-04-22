@@ -30,7 +30,7 @@ class WebcamApp {
       watch: {
         lastUserMediaConstraints: {
           handler: function (v, o) {
-            localStorage.setItem(LastUserMediaConstraintsKey, JSON.stringify(v))
+            localStorage.setItem(lastUserMediaConstraintsKey, JSON.stringify(v))
           },
           deep: true
         },
@@ -239,7 +239,7 @@ class WebcamApp {
       created () {
         this.setDefaultUserMediaConstraints(defaultConstraints)
 
-        let lastUsedConstraints = localStorage.getItem(LastUserMediaConstraintsKey)
+        let lastUsedConstraints = localStorage.getItem(lastUserMediaConstraintsKey)
         if (lastUsedConstraints) {
           try {
             lastUsedConstraints = JSON.parse(lastUsedConstraints)

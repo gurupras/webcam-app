@@ -104,10 +104,11 @@ class WebcamApp {
             case 'TypeError':
               msg = 'Bad constraints.'
           }
-          err.message = msg
+          const error = new Error(msg)
+          error.name = err.name
           // TODO: Remove the $emit call in v1.0
-          this.$emit('error', err)
-          throw err
+          this.$emit('error', error)
+          throw error
         },
         async requestCamera () {
           const { lastUserMediaConstraints } = this

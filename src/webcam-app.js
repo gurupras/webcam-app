@@ -10,8 +10,8 @@ try {
 }
 
 class WebcamApp {
-  constructor (lastUserMediaConstraintsKey = LastUserMediaConstraintsKey, defaultConstraints = defaultUserMediaConstraints()) {
-    return new Vue({
+  constructor (lastUserMediaConstraintsKey = LastUserMediaConstraintsKey, defaultConstraints = defaultUserMediaConstraints(), VueClass = Vue) {
+    return new VueClass({
       computed: {
         lastUserMediaConstraintsKey () {
           return lastUserMediaConstraintsKey

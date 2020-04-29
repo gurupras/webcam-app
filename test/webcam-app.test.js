@@ -18,6 +18,7 @@ function mockGetUserMedia () {
 }
 
 let lastUserMediaConstraintsKey
+const constraintsUpdateEvent = 'constraints-updated'
 describe('WebcamApp', () => {
   let app
   beforeEach(async () => {
@@ -30,8 +31,47 @@ describe('WebcamApp', () => {
       }
     })
     app = new WebcamApp()
+    app.$watch('lastUserMediaConstraints', () => app.$emit(constraintsUpdateEvent), { deep: true })
     lastUserMediaConstraintsKey = app.lastUserMediaConstraintsKey
     app.lastUserMediaConstraints = app.defaultUserMediaConstraints() // TODO: Figure out if this should be here since we should be using new LocalStorageMocks each time
+  })
+
+  test('No duplicates when LocalStorage contains prior constraints', async () => {
+    const expected = JSON.parse(localStorage[lastUserMediaConstraintsKey])
+    expect(app.lastUserMediaConstraints).toEqual(expected)
+    // When we create a new WebcamApp, the resulting constraints-merge should not create duplicates
+    app = new WebcamApp()
+    expect(app.lastUserMediaConstraints).toEqual(expected)
+  })
+
+  test('Different order of optional constraints don\'t cause duplicates', async () => {
+    const { lastUserMediaConstraints: { audio: { optional } } } = app
+    const sourceIDConstraint = optional.find(x => x.sourceId)
+    const sourceIDConstraintIndex = optional.indexOf(sourceIDConstraint)
+    // TODO: We should be testing a custom set of constraints that is known to have more than 1 value
+    let promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
+    optional.splice(sourceIDConstraintIndex, 1)
+    await expect(promise).toResolve()
+
+    promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
+    optional.splice(sourceIDConstraintIndex - 1, 0, sourceIDConstraint)
+    await expect(promise).toResolve()
+
+    // Modify the value of this constraint
+    promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
+    sourceIDConstraint.sourceId = 'dummy'
+    await expect(promise).toResolve()
+
+    // Now, create a new instance of WebcamApp which will use the default order of optional constraints
+    // And ensure that there is only one sourceId constraint and that its value is 'dummy'
+    app = new WebcamApp()
+    {
+      const { lastUserMediaConstraints: { audio: { optional } } } = app
+      const sourceIDConstraints = optional.filter(x => x.sourceId)
+      expect(sourceIDConstraints).toBeArrayOfSize(1)
+      const [sourceIDConstraint] = sourceIDConstraints
+      expect(sourceIDConstraint.sourceId).toEqual('dummy')
+    }
   })
 
   describe('Watch', () => {
@@ -47,6 +87,15 @@ describe('WebcamApp', () => {
       constraints = { audio: true, video: true }
       await waitForWatch(app, 'lastUserMediaConstraints', () => { app.lastUserMediaConstraints = constraints })
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(JSON.stringify(constraints))
+    })
+    test('Deep changes to \'lastUserMediaConstraints\' are saved in localStorage', async () => {
+      // Alter this constraint a little
+      mockGetUserMedia()
+      const promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
+      await app.switchDevice('videoInput', 'dummy')
+      await expect(promise).toResolve()
+      const expected = JSON.stringify(app.lastUserMediaConstraints)
+      expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(expected)
     })
 
     test('Changes to \'selfWebcamStream\' are emitted via \'webcam-stream\' event', async () => {

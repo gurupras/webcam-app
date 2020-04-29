@@ -1,5 +1,7 @@
 const Vue = require('vue')
 const deepmerge = require('deepmerge')
+const Flat = require('flat')
+
 const ProxyMediaStream = require('@gurupras/proxy-media-stream')
 
 const LastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
@@ -239,12 +241,43 @@ class WebcamApp {
       },
       created () {
         this.setDefaultUserMediaConstraints(defaultConstraints)
-
         let lastUsedConstraints = localStorage.getItem(lastUserMediaConstraintsKey)
         if (lastUsedConstraints) {
           try {
             lastUsedConstraints = JSON.parse(lastUsedConstraints)
-            this.lastUserMediaConstraints = deepmerge(this.lastUserMediaConstraints, lastUsedConstraints)
+            const defaults = this.defaultUserMediaConstraints()
+            // Merge optional constraints of each device
+            // These may be out of order, so a straight flatten will not work
+            const devices = [...new Set([...Object.keys(defaults), ...Object.keys(lastUsedConstraints)])]
+            const constraintsToMerge = [defaults, lastUsedConstraints] // The order matters. We want to override lastUserMediaConstraints with lastUsedConstraints
+            const optionalConstraints = {}
+            for (const device of devices) {
+              const optional = {}
+              for (const constraints of constraintsToMerge) {
+                const deviceConstraints = constraints[device]
+                const { optional: opt = [] } = deviceConstraints
+                for (const o of opt) {
+                  for (const [k, v] of Object.entries(o)) {
+                    optional[k] = v
+                  }
+                }
+                // Delete this from constraints since we're going to merge it back in
+                delete deviceConstraints.optional
+              }
+              optionalConstraints[device] = optional
+            }
+            const flatDefaults = Flat.flatten(defaults)
+            const flatLastUsed = Flat.flatten(lastUsedConstraints)
+            const flatMerged = deepmerge(flatDefaults, flatLastUsed)
+            const unflattened = Flat.unflatten(flatMerged)
+            for (const device of devices) {
+              const optional = []
+              for (const [k, v] of Object.entries(optionalConstraints[device])) {
+                optional.push({ [k]: v })
+              }
+              unflattened[device].optional = optional
+            }
+            this.lastUserMediaConstraints = unflattened
           } catch (e) {
           }
         }

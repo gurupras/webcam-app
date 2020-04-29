@@ -36,6 +36,7 @@
   "dependencies": {
     "@gurupras/proxy-media-stream": "^0.1.0",
     "deepmerge": "^4.2.2",
+    "flat": "^5.0.0",
     "vue": "^2.6.11"
   }
 }

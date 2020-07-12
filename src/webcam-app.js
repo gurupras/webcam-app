@@ -107,7 +107,10 @@ class WebcamApp {
               msg = 'Bad constraints.'
           }
           const error = new Error(msg)
-          error.name = err.name
+          Object.assign(error, {
+            name: err.name,
+            domException: err
+          })
           // TODO: Remove the $emit call in v1.0
           this.$emit('error', error)
           throw error

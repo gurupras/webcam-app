@@ -367,6 +367,41 @@ describe('WebcamApp', () => {
       })
     })
 
+    describe('getSelectedDeviceId', () => {
+      test('Return false if lastUserMediaConstraints[device] == true', async () => {
+        app.lastUserMediaConstraints = {
+          video: true,
+          audio: true
+        }
+        expect(app.getSelectedDeviceId('video')).toEqual(null)
+      })
+      test('Return true if present via exact deviceId', async () => {
+        app.lastUserMediaConstraints = {
+          video: {
+            deviceId: {
+              exact: 'device-1'
+            }
+          },
+          audio: true
+        }
+        expect(app.getSelectedDeviceId('video')).toEqual('device-1')
+      })
+
+      test('Works even if device is specified as an optional constraint', async () => {
+        app.lastUserMediaConstraints = {
+          video: {
+            optional: [
+              { minFrameRate: 30 },
+              { maxFrameRate: 30 },
+              { sourceId: 'device-1' },
+              { minWidth: 320 }
+            ]
+          },
+          audio: true
+        }
+        expect(app.getSelectedDeviceId('video')).toEqual('device-1')
+      })
+    })
     describe('isSelected', () => {
       test('Return false if lastUserMediaConstraints[device] == true', async () => {
         app.lastUserMediaConstraints = {
@@ -381,6 +416,21 @@ describe('WebcamApp', () => {
             deviceId: {
               exact: 'device-1'
             }
+          },
+          audio: true
+        }
+        expect(app.isSelected('video', 'device-2')).toBe(false)
+        expect(app.isSelected('video', 'device-1')).toBe(true)
+      })
+      test('Works even if device is specified as an optional constraint', async () => {
+        app.lastUserMediaConstraints = {
+          video: {
+            optional: [
+              { minFrameRate: 30 },
+              { maxFrameRate: 30 },
+              { sourceId: 'device-1' },
+              { minWidth: 320 }
+            ]
           },
           audio: true
         }
@@ -470,6 +520,77 @@ describe('WebcamApp', () => {
         expect(app.selfAudioStream).toBe(null)
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfWebcamStream.getVideoTracks()).toBeArrayOfSize(1)
+      })
+    })
+    describe('Preserve deviceId', () => {
+      let newConstraints
+      beforeEach(async () => {
+        mockGetUserMedia()
+        const defaultConstraints = {
+          video: {
+            optional: [
+              { minFrameRate: 30 },
+              { maxFrameRate: 30 },
+              { sourceId: 'video-device-1' },
+              { minWidth: 320 }
+            ]
+          },
+          audio: {
+            optional: [
+              { echoCancellation: true },
+              { noiseSuppression: true },
+              { sourceId: 'audio-device-1' },
+              { autoGainControl: true },
+              { googEchoCancellation: true }
+            ]
+          }
+        }
+        app.lastUserMediaConstraints = deepmerge({}, defaultConstraints)
+
+        newConstraints = deepmerge({}, defaultConstraints)
+        const videoEntry = app._getOptionalDeviceIdEntry('video', newConstraints)
+        videoEntry.sourceId = 'video-device-2'
+        const audioEntry = app._getOptionalDeviceIdEntry('audio', newConstraints)
+        audioEntry.sourceId = 'audio-device-2'
+      })
+
+      test('Setting audio/video to false preserves deviceId (if previously specified', async () => {
+        app.lastUserMediaConstraints = { audio: false, video: false }
+        await app.$nextTick()
+        expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-1')
+        expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-1')
+      })
+      test('Setting audio/video to different device preserves latest deviceId', async () => {
+        app.lastUserMediaConstraints = newConstraints
+        await app.$nextTick()
+        expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-2')
+        expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-2')
+        app.lastUserMediaConstraints = { audio: false, video: false }
+        await app.$nextTick()
+        expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-2')
+        expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-2')
+      })
+      test('Creating a new app restores the last used devices', async () => {
+        app.lastUserMediaConstraints = newConstraints
+        await app.$nextTick()
+
+        const newApp = new WebcamApp()
+        await newApp.$nextTick()
+        expect(app.getSelectedDeviceId('video')).toEqual('video-device-2')
+        expect(app.getSelectedDeviceId('audio')).toEqual('audio-device-2')
+      })
+
+      test('Setting audio/video to false and requesting Mic/Camera restores last used deviceId', async () => {
+        app.lastUserMediaConstraints = { audio: false, video: false }
+
+        await app.$nextTick()
+        await app.requestCamera()
+        await app.requestMicrophone()
+
+        expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-1')
+        expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-1')
+        expect(app.getSelectedDeviceId('video')).toEqual('video-device-1')
+        expect(app.getSelectedDeviceId('audio')).toEqual('audio-device-1')
       })
     })
     // TODO: Write explicit tests for updateStream

@@ -4,7 +4,19 @@ const Flat = require('flat')
 
 const ProxyMediaStream = require('@gurupras/proxy-media-stream')
 
-const LastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
+const lastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
+const lastUserMediaVideoDeviceKey = '__webcam-app__:lastUserDevice:video'
+const lastUserMediaAudioDeviceKey = '__webcam-app__:lastUserDevice:audio'
+
+const defaultOptions = () => {
+  return {
+    keys: {
+      lastUserMediaConstraintsKey,
+      lastUserMediaVideoDeviceKey,
+      lastUserMediaAudioDeviceKey
+    }
+  }
+}
 
 try {
   Vue.config.productionTip = false
@@ -12,11 +24,22 @@ try {
 }
 
 class WebcamApp {
-  constructor (lastUserMediaConstraintsKey = LastUserMediaConstraintsKey, defaultConstraints = defaultUserMediaConstraints(), VueClass = Vue) {
+  constructor (defaultConstraints = defaultUserMediaConstraints(), options = defaultOptions(), VueClass = Vue) {
+    if (!options) {
+      options = defaultOptions()
+    }
+    options = deepmerge(defaultOptions, options)
+
     return new VueClass({
       computed: {
         lastUserMediaConstraintsKey () {
-          return lastUserMediaConstraintsKey
+          return options.keys.lastUserMediaConstraintsKey
+        },
+        lastUserMediaVideoDeviceKey () {
+          return options.keys.lastUserMediaVideoDeviceKey
+        },
+        lastUserMediaAudioDeviceKey () {
+          return options.keys.lastUserMediaAudioDeviceKey
         }
       },
       data () {
@@ -32,6 +55,20 @@ class WebcamApp {
       watch: {
         lastUserMediaConstraints: {
           handler: function (v, o) {
+            const newVideoDeviceId = this.getSelectedDeviceId('video', v)
+            const oldVideoDeviceId = this.getSelectedDeviceId('video', o)
+
+            const lastVideoDeviceId = newVideoDeviceId || oldVideoDeviceId
+            if (lastVideoDeviceId) {
+              localStorage.setItem(lastUserMediaVideoDeviceKey, lastVideoDeviceId)
+            }
+
+            const newAudioDeviceId = this.getSelectedDeviceId('audio', v)
+            const oldAudioDeviceId = this.getSelectedDeviceId('audio', o)
+            const lastAudioDeviceId = newAudioDeviceId || oldAudioDeviceId
+            if (lastAudioDeviceId) {
+              localStorage.setItem(lastUserMediaAudioDeviceKey, lastAudioDeviceId)
+            }
             localStorage.setItem(lastUserMediaConstraintsKey, JSON.stringify(v))
           },
           deep: true
@@ -120,6 +157,7 @@ class WebcamApp {
           const defaults = this.defaultUserMediaConstraints()
           if (!lastUserMediaConstraints.video) {
             lastUserMediaConstraints.video = defaults.video
+            this._restoreDeviceId(lastUserMediaConstraints, 'video', this.lastUserMediaVideoDeviceKey)
           }
           if (!this.selfAudioStream || this.selfAudioStream.getTracks().length === 0) {
             // No existing audio stream. Don't request one now.
@@ -140,6 +178,7 @@ class WebcamApp {
           const defaults = await this.defaultUserMediaConstraints()
           if (!lastUserMediaConstraints.audio) {
             lastUserMediaConstraints.audio = defaults.audio
+            this._restoreDeviceId(lastUserMediaConstraints, 'audio', this.lastUserMediaAudioDeviceKey)
           }
           if (!this.selfVideoStream || this.selfVideoStream.getTracks().length === 0) {
             // No existing video stream. Don't request one now.
@@ -155,17 +194,71 @@ class WebcamApp {
             this.handleError(err, 'microphone', 'audio', 'micPermissionState')
           }
         },
+        _addDeviceId (constraints, deviceId, device) {
+          let { [device]: deviceConstraints } = constraints
+          if (!deviceConstraints) {
+            deviceConstraints = {}
+            constraints[device] = deviceConstraints
+          }
+          let entry = this._getOptionalDeviceIdEntry(device, constraints)
+          if (!entry) {
+            if (!deviceConstraints.optional) {
+              // There is no optional entry
+              deviceConstraints.optional = []
+            }
+            entry = {}
+            deviceConstraints.optional.push(entry)
+          }
+          this.$set(entry, 'sourceId', deviceId)
+        },
+        _restoreDeviceId (constraints, device, key) {
+          const lastUsedDeviceId = localStorage.getItem(key)
+          if (lastUsedDeviceId) {
+            this._addDeviceId(constraints, lastUsedDeviceId, device)
+          }
+        },
+        _getOptionalDeviceIdEntry (device, constraints) {
+          const { [device]: deviceConstraints } = constraints
+          if (!deviceConstraints) {
+            return null
+          }
+          const { optional } = deviceConstraints
+          if (!optional) {
+            return null
+          }
+          return optional.find(x => x.sourceId)
+        },
+        /**
+         *
+         * @param {String} device The device to check for. 'video|audio'
+         * @returns {String|null} The device ID if one was found, null otherwise
+         */
+        getSelectedDeviceId (device, constraints = this.lastUserMediaConstraints) {
+          const { [device]: deviceConstraints } = constraints
+          if (!deviceConstraints) {
+            return null
+          }
+          const { deviceId: deviceIdEntry = {} } = deviceConstraints
+          let { exact: existingDeviceId } = deviceIdEntry
+          if (!existingDeviceId) {
+            // Check optional constraints
+            const { optional = [] } = deviceConstraints
+            const deviceConstraint = optional.find(x => x.sourceId)
+            if (deviceConstraint) {
+              existingDeviceId = deviceConstraint.sourceId
+            }
+          }
+          return existingDeviceId || null
+        },
         /**
          * Check if a current device is specified in lastUserMediaConstraints
          *
          * @param {String} device `'audio'`|`'video'`
-         * @param {String} deviceID The device ID to check
+         * @param {String} deviceId The device ID to check
          */
         isSelected (device, deviceId) {
-          const { lastUserMediaConstraints } = this
-          const { [device]: { deviceId: existingDeviceId = {} } } = lastUserMediaConstraints
-          const { exact } = existingDeviceId
-          return deviceId === exact
+          const existingDeviceId = this.getSelectedDeviceId(device)
+          return deviceId === existingDeviceId
         },
         /**
          * Update media constraints based on camera/mic input selected by the user
@@ -244,6 +337,7 @@ class WebcamApp {
       },
       created () {
         this.setDefaultUserMediaConstraints(defaultConstraints)
+        const { lastUserMediaConstraintsKey, lastUserMediaAudioDeviceKey, lastUserMediaVideoDeviceKey } = this
         let lastUsedConstraints = localStorage.getItem(lastUserMediaConstraintsKey)
         if (lastUsedConstraints) {
           try {
@@ -279,6 +373,21 @@ class WebcamApp {
                 optional.push({ [k]: v })
               }
               unflattened[device].optional = optional
+            }
+            const data = {
+              audio: lastUserMediaAudioDeviceKey,
+              video: lastUserMediaVideoDeviceKey
+            }
+            for (const [device, key] of Object.entries(data)) {
+              const lastDeviceId = localStorage.getItem(key)
+              const deviceConstraints = unflattened[device]
+              if (!deviceConstraints) {
+                // This is probably set to false. Nothing to do here
+                continue
+              }
+              if (lastDeviceId) {
+                this._addDeviceId(unflattened, lastDeviceId, device)
+              }
             }
             this.lastUserMediaConstraints = unflattened
           } catch (e) {

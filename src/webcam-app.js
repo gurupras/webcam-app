@@ -368,6 +368,9 @@ class WebcamApp {
             const flatMerged = deepmerge(flatDefaults, flatLastUsed)
             const unflattened = Flat.unflatten(flatMerged)
             for (const device of devices) {
+              if (!unflattened[device]) {
+                continue
+              }
               const optional = []
               for (const [k, v] of Object.entries(optionalConstraints[device])) {
                 optional.push({ [k]: v })

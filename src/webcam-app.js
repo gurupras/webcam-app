@@ -4,16 +4,16 @@ const Flat = require('flat')
 
 const ProxyMediaStream = require('@gurupras/proxy-media-stream')
 
-const lastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
-const lastUserMediaVideoDeviceKey = '__webcam-app__:lastUserDevice:video'
-const lastUserMediaAudioDeviceKey = '__webcam-app__:lastUserDevice:audio'
+const LastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
+const LastUserMediaVideoDeviceKey = '__webcam-app__:lastUserDevice:video'
+const LastUserMediaAudioDeviceKey = '__webcam-app__:lastUserDevice:audio'
 
 const defaultOptions = () => {
   return {
     keys: {
-      lastUserMediaConstraintsKey,
-      lastUserMediaVideoDeviceKey,
-      lastUserMediaAudioDeviceKey
+      lastUserMediaConstraintsKey: LastUserMediaConstraintsKey,
+      lastUserMediaVideoDeviceKey: LastUserMediaVideoDeviceKey,
+      lastUserMediaAudioDeviceKey: LastUserMediaAudioDeviceKey
     }
   }
 }
@@ -55,9 +55,10 @@ class WebcamApp {
       watch: {
         lastUserMediaConstraints: {
           handler: function (v, o) {
+            const { lastUserMediaVideoDeviceKey, lastUserMediaAudioDeviceKey, lastUserMediaConstraintsKey } = this
+
             const newVideoDeviceId = this.getSelectedDeviceId('video', v)
             const oldVideoDeviceId = this.getSelectedDeviceId('video', o)
-
             const lastVideoDeviceId = newVideoDeviceId || oldVideoDeviceId
             if (lastVideoDeviceId) {
               localStorage.setItem(lastUserMediaVideoDeviceKey, lastVideoDeviceId)

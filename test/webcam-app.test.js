@@ -593,6 +593,87 @@ describe('WebcamApp', () => {
         expect(app.getSelectedDeviceId('audio')).toEqual('audio-device-1')
       })
     })
+
+    describe('enumerate*Devices', () => {
+      let devices
+      beforeEach(() => {
+        devices = [
+          {
+            deviceId: 'dummy-video-device-1',
+            groupId: 'dummy-video-group-1',
+            kind: 'videoinput',
+            label: 'dummy video device 1'
+          },
+          {
+            deviceId: 'dummy-video-device-2',
+            groupId: 'dummy-video-group-2',
+            kind: 'videoinput',
+            label: 'dummy video device 2'
+          },
+          {
+            deviceId: 'default',
+            groupId: 'default',
+            kind: 'videoinput',
+            label: 'dummy video device 2'
+          },
+          {
+            deviceId: 'dummy-audio-device-1',
+            groupId: 'dummy-audio-group-1',
+            kind: 'audioinput',
+            label: 'dummy audio device 1'
+          },
+          {
+            deviceId: 'dummy-audio-device-2',
+            groupId: 'dummy-audio-group-2',
+            kind: 'audioinput',
+            label: 'dummy audio device 2'
+          },
+          {
+            deviceId: 'default',
+            groupId: 'default',
+            kind: 'audioinput',
+            label: 'dummy audio device 1'
+          },
+          {
+            deviceId: 'dummy-audio-device-3',
+            groupId: 'dummy-audio-group-3',
+            kind: 'audiooutput',
+            label: 'dummy audio device 3'
+          },
+          {
+            deviceId: 'dummy-audio-device-3',
+            groupId: 'dummy-audio-group-3',
+            kind: 'audiooutput',
+            label: 'dummy audio device 3'
+          }
+        ]
+        global.navigator.mediaDevices.enumerateDevices = jest.fn().mockReturnValue(devices)
+      })
+      test('enumerateDevices with no argument returns all devices', async () => {
+        await expect(app.enumerateDevices()).resolves.toIncludeSameMembers(devices)
+      })
+      test('enumerateDevices with only type filters all available devices by type', async () => {
+        const expected = devices.filter(x => x.kind === 'videoinput')
+        await expect(app.enumerateDevices('videoinput')).resolves.toIncludeSameMembers(expected)
+      })
+      test('enumerateDevices with type and custom device list filters device list by type', async () => {
+        const customDeviceList = devices.slice(2)
+        const expected = customDeviceList.filter(x => x.kind === 'videoinput')
+        await expect(app.enumerateDevices('videoinput', customDeviceList)).resolves.toIncludeSameMembers(expected)
+      })
+      test('enumerateAudioInputDevices returns all audio input devices', async () => {
+        const expected = devices.filter(x => x.kind === 'audioinput')
+        await expect(app.enumerateAudioInputDevices()).resolves.toIncludeSameMembers(expected)
+      })
+      test('enumerateAudioOutputDevices returns all audio output devices', async () => {
+        const expected = devices.filter(x => x.kind === 'audiooutput')
+        await expect(app.enumerateAudioOutputDevices()).resolves.toIncludeSameMembers(expected)
+      })
+      test('enumerateVideoInputDevices returns all video input devices', async () => {
+        const expected = devices.filter(x => x.kind === 'videoinput')
+        await expect(app.enumerateVideoInputDevices()).resolves.toIncludeSameMembers(expected)
+      })
+    })
     // TODO: Write explicit tests for updateStream
   })
 })

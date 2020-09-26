@@ -334,6 +334,21 @@ class WebcamApp {
         },
         stopMicrophone () {
           this.updateAudioStream()
+        },
+        async enumerateDevices (type, devices) {
+          if (!devices) {
+            devices = await navigator.mediaDevices.enumerateDevices()
+          }
+          return devices.filter(device => type ? device.kind === type : true)
+        },
+        enumerateVideoInputDevices (devices) {
+          return this.enumerateDevices('videoinput', devices)
+        },
+        enumerateAudioInputDevices (devices) {
+          return this.enumerateDevices('audioinput', devices)
+        },
+        enumerateAudioOutputDevices (devices) {
+          return this.enumerateDevices('audiooutput', devices)
         }
       },
       created () {

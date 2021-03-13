@@ -49,7 +49,9 @@ class WebcamApp {
           selfWebcamStream: undefined,
           micPermissionState: 'prompt',
           cameraPermissionState: 'prompt',
-          lastUserMediaConstraints: defaultConstraints
+          lastUserMediaConstraints: defaultConstraints,
+          selfAudioTrackEnabled: false,
+          selfVideoTrackEnabled: false
         }
       },
       watch: {
@@ -167,9 +169,17 @@ class WebcamApp {
           try {
             // console.log(`requestCamera: constraints: ${JSON.stringify(constraints)}`)
             const stream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
+            // We just requested camera
+            this.selfVideoTrackEnabled = true
             const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
             this.updateVideoStream(videoStream)
             this.updateAudioStream(audioStream)
+            // Ensure that the audio track is in the right state
+            await this.$nextTick()
+            const audioTrack = stream.getAudioTracks()[0]
+            if (audioTrack) {
+              audioTrack.enabled = this.selfAudioTrackEnabled
+            }
           } catch (err) {
             this.handleError(err, 'webcam', 'video', 'cameraPermissionState')
           }
@@ -188,9 +198,17 @@ class WebcamApp {
           try {
             // console.log(`requestMicrophone: constraints: ${JSON.stringify(constraints)}`)
             const stream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
+            // We just requested microphone
+            this.selfAudioTrackEnabled = true
             const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
             this.updateVideoStream(videoStream)
             this.updateAudioStream(audioStream)
+            // Ensure that the video track is in the right state
+            await this.$nextTick()
+            const videoTrack = stream.getVideoTracks()[0]
+            if (videoTrack) {
+              videoTrack.enabled = this.selfVideoTrackEnabled
+            }
           } catch (err) {
             this.handleError(err, 'microphone', 'audio', 'micPermissionState')
           }

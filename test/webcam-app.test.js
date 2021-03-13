@@ -277,6 +277,21 @@ describe('WebcamApp', () => {
         expect(app.selfAudioStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(2)
       })
+      test('Turns off resulting audio track if audio track was previously paused', async () => {
+        app.lastUserMediaConstraints = {
+          video: false,
+          audio: true
+        }
+        app.selfAudioStream = new FakeMediaStream(null, { numAudioTracks: 1 })
+        // Pause the track
+        app.selfAudioTrackEnabled = false
+        await expect(app.requestCamera()).toResolve()
+        expect(app.selfVideoStream.getTracks()).toBeArrayOfSize(1)
+        expect(app.selfAudioStream).toBeTruthy()
+        expect(app.selfAudioStream.getTracks()).toBeArrayOfSize(1)
+        expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(2)
+        expect(app.selfAudioStream.getTracks()[0].enabled).toBeFalse()
+      })
       describe('Error handling', () => {
         beforeEach(() => {
         })
@@ -339,6 +354,21 @@ describe('WebcamApp', () => {
         expect(app.selfVideoStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfAudioStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(2)
+      })
+      test('Turns off resulting video track if video track was previously paused', async () => {
+        app.lastUserMediaConstraints = {
+          video: true,
+          audio: false
+        }
+        app.selfVideoStream = new FakeMediaStream(null, { numVideoTracks: 1 })
+        // Pause the track
+        app.selfVideoTrackEnabled = false
+        await expect(app.requestMicrophone()).toResolve()
+        expect(app.selfVideoStream).toBeTruthy()
+        expect(app.selfVideoStream.getTracks()).toBeArrayOfSize(1)
+        expect(app.selfAudioStream.getTracks()).toBeArrayOfSize(1)
+        expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(2)
+        expect(app.selfVideoStream.getTracks()[0].enabled).toBeFalse()
       })
       describe('Error handling', () => {
         beforeEach(() => {

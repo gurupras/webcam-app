@@ -20,7 +20,7 @@
   "devDependencies": {
     "@babel/core": "^7.11.6",
     "@babel/preset-env": "^7.11.5",
-    "@gurupras/test-helpers": "^0.2.2",
+    "@gurupras/test-helpers": "^0.4.1",
     "@types/jest": "^26.0.14",
     "babel-jest": "^26.3.0",
     "eslint": "^7.9.0",
@@ -37,6 +37,6 @@
     "@gurupras/proxy-media-stream": "^0.2.0",
     "deepmerge": "^4.2.2",
     "flat": "^5.0.2",
-    "vue": "^2.6.12"
+    "vue": "^3.0.11"
   }
 }

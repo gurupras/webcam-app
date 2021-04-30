@@ -1,8 +1,21 @@
-import { FakeMediaStream, FakeMediaTrack, LocalStorageMock, vueWaitForWatch as waitForWatch, testForEvent, testForNoEvent } from '@gurupras/test-helpers' // Must be first so that global.MediaStream is updated
+import { watch, nextTick, toRefs } from 'vue'
+import { FakeMediaStream, FakeMediaTrack, LocalStorageMock, testForEvent } from '@gurupras/test-helpers' // Must be first so that global.MediaStream is updated
 import ProxyMediaStream from '@gurupras/proxy-media-stream'
 import deepmerge from 'deepmerge'
 
 import WebcamApp from '../index'
+
+function waitForWatch (prop, executor, opts) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('waitForWatch timed out')), 100)
+    const unwatch = watch(prop, (v, o) => {
+      unwatch()
+      clearTimeout(timeout)
+      nextTick(() => resolve([v, o]))
+    }, opts)
+    executor()
+  })
+}
 
 function mockGetUserMedia () {
   global.navigator.mediaDevices.getUserMedia = jest.fn().mockImplementation(async ({ audio, video }) => {
@@ -20,6 +33,7 @@ function mockGetUserMedia () {
 let lastUserMediaConstraintsKey
 const constraintsUpdateEvent = 'constraints-updated'
 describe('WebcamApp', () => {
+  /** @type {WebcamApp.default} */
   let app
   beforeEach(async () => {
     global.localStorage = new LocalStorageMock()
@@ -31,7 +45,6 @@ describe('WebcamApp', () => {
       }
     })
     app = new WebcamApp()
-    app.$watch('lastUserMediaConstraints', () => app.$emit(constraintsUpdateEvent), { deep: true })
     lastUserMediaConstraintsKey = app.lastUserMediaConstraintsKey
     app.lastUserMediaConstraints = app.defaultUserMediaConstraints() // TODO: Figure out if this should be here since we should be using new LocalStorageMocks each time
   })
@@ -45,22 +58,15 @@ describe('WebcamApp', () => {
   })
 
   test('Different order of optional constraints don\'t cause duplicates', async () => {
-    const { lastUserMediaConstraints: { audio: { optional } } } = app
-    const sourceIDConstraint = optional.find(x => x.sourceId)
-    const sourceIDConstraintIndex = optional.indexOf(sourceIDConstraint)
+    const { optional } = toRefs(app.lastUserMediaConstraints.audio)
+    const sourceIDConstraintIndex = optional.value.findIndex(x => x.sourceId)
+    const sourceIDConstraint = optional.value[sourceIDConstraintIndex]
+
     // TODO: We should be testing a custom set of constraints that is known to have more than 1 value
-    let promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-    optional.splice(sourceIDConstraintIndex, 1)
-    await expect(promise).toResolve()
-
-    promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-    optional.splice(sourceIDConstraintIndex - 1, 0, sourceIDConstraint)
-    await expect(promise).toResolve()
-
+    await expect(waitForWatch(() => app.lastUserMediaConstraints, () => { optional.value.splice(sourceIDConstraintIndex, 1) }, { deep: true })).toResolve()
+    await expect(waitForWatch(() => app.lastUserMediaConstraints, () => { optional.value.splice(sourceIDConstraintIndex - 1, 0, sourceIDConstraint) }, { deep: true })).toResolve()
     // Modify the value of this constraint
-    promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-    sourceIDConstraint.sourceId = 'dummy'
-    await expect(promise).toResolve()
+    await expect(waitForWatch(() => app.lastUserMediaConstraints, () => { sourceIDConstraint.sourceId = 'dummy' }, { deep: true })).toResolve()
 
     // Now, create a new instance of WebcamApp which will use the default order of optional constraints
     // And ensure that there is only one sourceId constraint and that its value is 'dummy'
@@ -77,74 +83,63 @@ describe('WebcamApp', () => {
   describe('Watch', () => {
     test('Changes to \'lastUserMediaConstraints\' are saved in localStorage', async () => {
       let constraints = {}
-      await waitForWatch(app, 'lastUserMediaConstraints', () => { app.lastUserMediaConstraints = constraints })
+      await waitForWatch(() => app.lastUserMediaConstraints, () => { app.lastUserMediaConstraints = constraints })
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(JSON.stringify(constraints))
 
       constraints = { audio: true, video: false }
-      await waitForWatch(app, 'lastUserMediaConstraints', () => { app.lastUserMediaConstraints = constraints })
+      await waitForWatch(() => app.lastUserMediaConstraints, () => { app.lastUserMediaConstraints = constraints })
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(JSON.stringify(constraints))
 
       constraints = { audio: true, video: true }
-      await waitForWatch(app, 'lastUserMediaConstraints', () => { app.lastUserMediaConstraints = constraints })
+      await waitForWatch(() => app.lastUserMediaConstraints, () => { app.lastUserMediaConstraints = constraints })
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(JSON.stringify(constraints))
     })
     test('Deep changes to \'lastUserMediaConstraints\' are saved in localStorage', async () => {
       // Alter this constraint a little
       mockGetUserMedia()
-      const promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-      await app.switchDevice('videoInput', 'dummy')
-      await expect(promise).toResolve()
+      await waitForWatch(() => app.lastUserMediaConstraints, async () => { await app.switchDevice('videoInput', 'dummy') }, { deep: true })
       const expected = JSON.stringify(app.lastUserMediaConstraints)
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(expected)
     })
 
-    test('Changes to \'selfWebcamStream\' are emitted via \'webcam-stream\' event', async () => {
-      const stream = new FakeMediaStream(null, { numAudioTracks: 2, numVideoTracks: 2 })
-      const promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
-      await waitForWatch(app, 'selfWebcamStream', () => { app.selfWebcamStream = stream })
-      await expect(promise).toResolve()
+    test('Changes to \'selfWebcamStream\' trigger the watch', async () => {
+      const stream = new FakeMediaStream({ numAudioTracks: 2, numVideoTracks: 2 })
+      await expect(waitForWatch(() => app.selfWebcamStream, () => { app.selfWebcamStream = stream })).toResolve()
     })
 
     test('If neither selfVideoStream nor selfAudioStream are present, selfWebcamStream is removed', async () => {
-      const videoStream = new FakeMediaStream(null, { numVideoTracks: 2 })
-      const audioStream = new FakeMediaStream(null, { numAudioTracks: 2 })
+      const videoStream = new FakeMediaStream({ numVideoTracks: 2 })
+      const audioStream = new FakeMediaStream({ numAudioTracks: 2 })
       const webcamStream = new FakeMediaStream([...videoStream.getTracks(), ...audioStream.getTracks()])
       let promise
 
       app.selfVideoStream = videoStream
       app.selfAudioStream = audioStream
-      promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
+      promise = waitForWatch(() => app.selfWebcamStream, () => { app.selfWebcamStream = webcamStream })
       app.selfWebcamStream = webcamStream
-      await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
+      await expect(promise).resolves.toEqual([webcamStream, undefined])
 
-      promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
-      app.selfVideoStream = undefined
-      app.selfAudioStream = undefined
-      await expect(promise).resolves.toEqual({ newStream: undefined, oldStream: webcamStream })
+      promise = waitForWatch(() => app.selfWebcamStream, () => {
+        app.selfVideoStream = undefined
+        app.selfAudioStream = undefined
+      })
+      await expect(promise).resolves.toEqual([undefined, webcamStream])
     })
     test('If either selfVideoStream or selfAudioStream are present, selfWebcamStream is preserved', async () => {
       const videoStream = new FakeMediaStream(null, { numVideoTracks: 2 })
       const audioStream = new FakeMediaStream(null, { numAudioTracks: 2 })
       const webcamStream = new FakeMediaStream([...videoStream.getTracks(), ...audioStream.getTracks()])
-      let promise
 
       app.selfVideoStream = videoStream
       app.selfAudioStream = audioStream
-      promise = testForEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
-      app.selfWebcamStream = webcamStream
-      await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
+      await expect(waitForWatch(() => app.selfWebcamStream, () => { app.selfWebcamStream = webcamStream })).resolves.toEqual([webcamStream, undefined])
 
-      promise = testForNoEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
-      await expect(promise).toResolve()
-
-      promise = testForNoEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
-      app.selfVideoStream = undefined
-      await expect(promise).toResolve()
+      await waitForWatch(() => app.selfVideoStream, () => { app.selfVideoStream = undefined })
+      await expect(app.selfWebcamStream).toEqual(webcamStream)
       app.selfVideoStream = videoStream
 
-      promise = testForNoEvent(app, 'webcam-stream', { vue: true, timeout: 100 })
-      app.selfAudioStream = undefined
-      await expect(promise).toResolve()
+      await waitForWatch(() => app.selfAudioStream, () => { app.selfAudioStream = undefined })
+      await expect(app.selfWebcamStream).toEqual(webcamStream)
     })
   })
 
@@ -586,26 +581,26 @@ describe('WebcamApp', () => {
 
       test('Setting audio/video to false preserves deviceId (if previously specified', async () => {
         app.lastUserMediaConstraints = { audio: false, video: false }
-        await app.$nextTick()
+        await nextTick()
         expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-1')
         expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-1')
       })
       test('Setting audio/video to different device preserves latest deviceId', async () => {
         app.lastUserMediaConstraints = newConstraints
-        await app.$nextTick()
+        await nextTick()
         expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-2')
         expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-2')
         app.lastUserMediaConstraints = { audio: false, video: false }
-        await app.$nextTick()
+        await nextTick()
         expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-2')
         expect(global.localStorage.getItem(app.lastUserMediaAudioDeviceKey)).toEqual('audio-device-2')
       })
       test('Creating a new app restores the last used devices', async () => {
         app.lastUserMediaConstraints = newConstraints
-        await app.$nextTick()
+        await nextTick()
 
-        const newApp = new WebcamApp()
-        await newApp.$nextTick()
+        const newApp = new WebcamApp() // eslint-disable-line
+        await nextTick()
         expect(app.getSelectedDeviceId('video')).toEqual('video-device-2')
         expect(app.getSelectedDeviceId('audio')).toEqual('audio-device-2')
       })
@@ -613,7 +608,7 @@ describe('WebcamApp', () => {
       test('Setting audio/video to false and requesting Mic/Camera restores last used deviceId', async () => {
         app.lastUserMediaConstraints = { audio: false, video: false }
 
-        await app.$nextTick()
+        await nextTick()
         await app.requestCamera()
         await app.requestMicrophone()
 

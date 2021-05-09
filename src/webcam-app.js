@@ -51,26 +51,37 @@ class WebcamApp {
           cameraPermissionState: 'prompt',
           lastUserMediaConstraints: defaultConstraints,
           selfAudioTrackEnabled: false,
-          selfVideoTrackEnabled: false
+          selfVideoTrackEnabled: false,
+          lastVideoInputDeviceId: 'default',
+          lastAudioInputDeviceId: 'default',
+          lastAudioOutputDeviceId: 'default'
         }
       },
       watch: {
+        lastVideoInputDeviceId (v) {
+          const { lastUserMediaVideoDeviceKey } = this
+          localStorage.setItem(lastUserMediaVideoDeviceKey, v)
+        },
+        lastAudioInputDeviceId (v) {
+          const { lastUserMediaAudioDeviceKey } = this
+          localStorage.setItem(lastUserMediaAudioDeviceKey, v)
+        },
         lastUserMediaConstraints: {
           handler: function (v, o) {
-            const { lastUserMediaVideoDeviceKey, lastUserMediaAudioDeviceKey, lastUserMediaConstraintsKey } = this
+            const { lastUserMediaConstraintsKey } = this
 
             const newVideoDeviceId = this.getSelectedDeviceId('video', v)
             const oldVideoDeviceId = this.getSelectedDeviceId('video', o)
             const lastVideoDeviceId = newVideoDeviceId || oldVideoDeviceId
             if (lastVideoDeviceId) {
-              localStorage.setItem(lastUserMediaVideoDeviceKey, lastVideoDeviceId)
+              this.lastVideoInputDeviceId = lastVideoDeviceId
             }
 
             const newAudioDeviceId = this.getSelectedDeviceId('audio', v)
             const oldAudioDeviceId = this.getSelectedDeviceId('audio', o)
             const lastAudioDeviceId = newAudioDeviceId || oldAudioDeviceId
             if (lastAudioDeviceId) {
-              localStorage.setItem(lastUserMediaAudioDeviceKey, lastAudioDeviceId)
+              this.lastAudioInputDeviceId = lastAudioDeviceId
             }
             localStorage.setItem(lastUserMediaConstraintsKey, JSON.stringify(v))
           },
@@ -289,24 +300,33 @@ class WebcamApp {
          */
         async switchDevice (type, deviceId) {
           const { lastUserMediaConstraints, selfWebcamStream } = this
-          let device
+          let mediaConstraints
+          let deviceKey
           switch (type) {
             case 'videoInput':
-              device = 'video'
+              mediaConstraints = lastUserMediaConstraints.video
+              deviceKey = 'lastVideoInputDeviceId'
               break
             case 'audioInput':
-              device = 'audio'
+              mediaConstraints = lastUserMediaConstraints.audio
+              deviceKey = 'lastAudioInputDeviceId'
               break
             default:
               throw new Error('Unknown device type')
           }
-          this._addDeviceId(lastUserMediaConstraints, deviceId, device)
-
-          if (selfWebcamStream) {
-            const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
-            const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
-            this.updateVideoStream(videoStream)
-            this.updateAudioStream(audioStream)
+          if (!mediaConstraints) {
+            // We don't have active constraints. Just store it as the last used device
+            this[deviceKey] = deviceId
+          } else {
+            const { optional } = mediaConstraints
+            const sourceIDEntry = optional.find(x => x.sourceId)
+            sourceIDEntry.sourceId = deviceId
+            if (selfWebcamStream) {
+              const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
+              const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
+              this.updateVideoStream(videoStream)
+              this.updateAudioStream(audioStream)
+            }
           }
         },
         updateVideoStream (stream) {

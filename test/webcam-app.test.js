@@ -477,6 +477,10 @@ describe('WebcamApp', () => {
       let videoSource
       beforeEach(() => {
         mockGetUserMedia()
+      })
+
+      // Add a bunch of streams and default sourceIds
+      function updateWithStreams () {
         videoSource = app.lastUserMediaConstraints.video.optional.find(x => x.sourceId)
         audioSource = app.lastUserMediaConstraints.audio.optional.find(x => x.sourceId)
         videoSource.sourceId = 'vd-1'
@@ -489,44 +493,59 @@ describe('WebcamApp', () => {
         app.selfVideoStream = videoStream
         app.selfAudioStream = audioStream
         app.selfWebcamStream = stream
-      })
+      }
 
       test('Throws error on bad \'type\'', async () => {
         await expect(app.switchDevice('bad', 'dummy')).toReject()
       })
-      test.each([
-        ['video', 'videoInput'],
-        ['audio', 'audioInput']
-      ])('Changing %s constraint updates lastUserMediaConstraints', async (device, type) => {
-        app = new WebcamApp()
-        const newDevice = 'dev-2'
-        await app.switchDevice(type, newDevice)
-        await expect(app.isSelected(device, newDevice)).toBeTrue()
-      })
-      test('Changing either video/audio constraint does not call getUserMedia if there was no active stream(s)', async () => {
-        app = new WebcamApp()
-        const newVideoDevice = 'vd-2'
-        await app.switchDevice('videoInput', newVideoDevice)
-        expect(global.navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
-      })
-      test('Changing either video/audio constraint preserves the other when making new getUserMedia call', async () => {
-        // Change videoInput and verify that audio properties were preserved
-        const oldConstraints = deepmerge({}, app.lastUserMediaConstraints)
-        const newVideoDevice = 'vd-2'
-        await app.switchDevice('videoInput', newVideoDevice)
-        // await expect().toResolve()
-        let expectedConstraints = deepmerge({}, oldConstraints)
-        expectedConstraints.video.optional.find(x => x.sourceId).sourceId = newVideoDevice
-        await expect(global.navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(expectedConstraints)
-        await expect(app.selfVideoStream).not.toEqual(videoStream)
-
-        // Now, change audioInput and verify that video properties were preserved
-        const newAudioDevice = 'ad-2'
-        await expect(app.switchDevice('audioInput', newAudioDevice)).toResolve()
-        expectedConstraints = deepmerge({}, app.lastUserMediaConstraints)
-        expectedConstraints.audio.optional.find(x => x.sourceId).sourceId = newAudioDevice
-        await expect(global.navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(expectedConstraints)
-        await expect(app.selfAudioStream).not.toEqual(audioStream)
+      describe.each([
+        ['video', 'videoInput', 'lastUserMediaVideoDeviceKey', 'requestCamera'],
+        ['audio', 'audioInput', 'lastUserMediaAudioDeviceKey', 'requestMicrophone']
+      ])('%s', (device, type, key, fn) => {
+        test('Changing device updates lastUserMediaConstraints', async () => {
+          updateWithStreams()
+          const newDevice = 'dev-2'
+          await app.switchDevice(type, newDevice)
+          await expect(app.isSelected(device, newDevice)).toBeTrue()
+        })
+        test('Changing device does not call getUserMedia if there was no active stream(s)', async () => {
+          const newDevice = 'dev-2'
+          await app.switchDevice(type, newDevice)
+          expect(global.navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+        })
+        test('Changing device when there there is no current constraint will use the new device in subsequent calls', async () => {
+          // Override the constraint to be false
+          app.lastUserMediaConstraints[device] = false
+          const newDevice = 'dev-2'
+          await app.switchDevice(type, newDevice)
+          expect(app.lastUserMediaConstraints[device]).toBeFalse()
+          expect(localStorage.getItem(app[key])).toEqual(newDevice)
+          // Now, make the getUserMedia call
+          await app[fn]()
+          expect(app.isSelected(device, newDevice)).toBeTrue()
+        })
+        test('Changing device preserves the other when making new getUserMedia call', async () => {
+          updateWithStreams()
+          let otherDevice
+          switch (device) {
+            case 'video':
+              otherDevice = 'audio'
+              break
+            case 'audio':
+              otherDevice = 'video'
+              break
+          }
+          // Change videoInput and verify that audio properties were preserved
+          const oldConstraints = deepmerge({}, app.lastUserMediaConstraints)
+          const newDevice = 'vd-2'
+          await app.switchDevice(type, newDevice)
+          // await expect().toResolve()
+          const expectedConstraints = deepmerge({}, oldConstraints)
+          expectedConstraints[device].optional.find(x => x.sourceId).sourceId = newDevice
+          expect(global.navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(expectedConstraints)
+          expect(app.selfVideoStream).not.toEqual(videoStream)
+          expect(expectedConstraints[otherDevice]).toEqual(oldConstraints[otherDevice])
+        })
       })
     })
 
@@ -599,7 +618,7 @@ describe('WebcamApp', () => {
         audioEntry.sourceId = 'audio-device-2'
       })
 
-      test('Setting audio/video to false preserves deviceId (if previously specified', async () => {
+      test('Setting audio/video to false preserves deviceId (if previously specified)', async () => {
         app.lastUserMediaConstraints = { audio: false, video: false }
         await app.$nextTick()
         expect(global.localStorage.getItem(app.lastUserMediaVideoDeviceKey)).toEqual('video-device-1')

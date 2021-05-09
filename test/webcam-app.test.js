@@ -494,6 +494,15 @@ describe('WebcamApp', () => {
       test('Throws error on bad \'type\'', async () => {
         await expect(app.switchDevice('bad', 'dummy')).toReject()
       })
+      test.each([
+        ['video', 'videoInput'],
+        ['audio', 'audioInput']
+      ])('Changing %s constraint updates lastUserMediaConstraints', async (device, type) => {
+        app = new WebcamApp()
+        const newDevice = 'dev-2'
+        await app.switchDevice(type, newDevice)
+        await expect(app.isSelected(device, newDevice)).toBeTrue()
+      })
       test('Changing either video/audio constraint does not call getUserMedia if there was no active stream(s)', async () => {
         app = new WebcamApp()
         const newVideoDevice = 'vd-2'

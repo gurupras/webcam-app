@@ -289,18 +289,18 @@ class WebcamApp {
          */
         async switchDevice (type, deviceId) {
           const { lastUserMediaConstraints, selfWebcamStream } = this
-          let mediaConstraints
+          let device
           switch (type) {
             case 'videoInput':
-              mediaConstraints = lastUserMediaConstraints.video
+              device = 'video'
               break
             case 'audioInput':
-              mediaConstraints = lastUserMediaConstraints.audio
+              device = 'audio'
               break
+            default:
+              throw new Error('Unknown device type')
           }
-          const { optional } = mediaConstraints
-          const sourceIDEntry = optional.find(x => x.sourceId)
-          sourceIDEntry.sourceId = deviceId
+          this._addDeviceId(lastUserMediaConstraints, deviceId, device)
 
           if (selfWebcamStream) {
             const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)

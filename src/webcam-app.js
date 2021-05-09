@@ -288,7 +288,7 @@ class WebcamApp {
          * @param {Object} event Event
          */
         async switchDevice (type, deviceId) {
-          const { lastUserMediaConstraints } = this
+          const { lastUserMediaConstraints, selfWebcamStream } = this
           let mediaConstraints
           switch (type) {
             case 'videoInput':
@@ -302,10 +302,12 @@ class WebcamApp {
           const sourceIDEntry = optional.find(x => x.sourceId)
           sourceIDEntry.sourceId = deviceId
 
-          const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
-          const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
-          this.updateVideoStream(videoStream)
-          this.updateAudioStream(audioStream)
+          if (selfWebcamStream) {
+            const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
+            const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
+            this.updateVideoStream(videoStream)
+            this.updateAudioStream(audioStream)
+          }
         },
         updateVideoStream (stream) {
           return this.updateStream({

@@ -494,6 +494,12 @@ describe('WebcamApp', () => {
       test('Throws error on bad \'type\'', async () => {
         await expect(app.switchDevice('bad', 'dummy')).toReject()
       })
+      test('Changing either video/audio constraint does not call getUserMedia if there was no active stream(s)', async () => {
+        app = new WebcamApp()
+        const newVideoDevice = 'vd-2'
+        await app.switchDevice('videoInput', newVideoDevice)
+        expect(global.navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+      })
       test('Changing either video/audio constraint preserves the other when making new getUserMedia call', async () => {
         // Change videoInput and verify that audio properties were preserved
         const oldConstraints = deepmerge({}, app.lastUserMediaConstraints)

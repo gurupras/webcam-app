@@ -434,19 +434,21 @@ class WebcamApp {
               unflattened[device].optional = optional
             }
             const data = {
-              audio: lastUserMediaAudioDeviceKey,
-              video: lastUserMediaVideoDeviceKey
+              audio: [lastUserMediaAudioDeviceKey, 'lastAudioInputDeviceId'],
+              video: [lastUserMediaVideoDeviceKey, 'lastVideoInputDeviceId']
             }
-            for (const [device, key] of Object.entries(data)) {
-              const lastDeviceId = localStorage.getItem(key)
+            for (const [device, [storageKey, lastDeviceIdKey]] of Object.entries(data)) {
+              const lastDeviceId = localStorage.getItem(storageKey)
+              if (!lastDeviceId) {
+                continue
+              }
+              this[lastDeviceIdKey] = lastDeviceId
               const deviceConstraints = unflattened[device]
               if (!deviceConstraints) {
                 // This is probably set to false. Nothing to do here
                 continue
               }
-              if (lastDeviceId) {
-                this._addDeviceId(unflattened, lastDeviceId, device)
-              }
+              this._addDeviceId(unflattened, lastDeviceId, device)
             }
             this.lastUserMediaConstraints = unflattened
           } catch (e) {

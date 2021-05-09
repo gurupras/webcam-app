@@ -74,6 +74,49 @@ describe('WebcamApp', () => {
     }
   })
 
+  describe('Restores last used device ID', () => {
+    let videoDevice
+    let audioDevice
+    beforeEach(async () => {
+      videoDevice = 'device-1'
+      audioDevice = 'device-2'
+      const constraints = {
+        video: {
+          optional: [
+            { minFrameRate: 30 },
+            { maxFrameRate: 30 },
+            { sourceId: videoDevice },
+            { minWidth: 320 }
+          ]
+        },
+        audio: {
+          optional: [
+            { sourceId: audioDevice }
+          ]
+        }
+      }
+      app.lastUserMediaConstraints = constraints
+      await app.$nextTick()
+    })
+
+    test('When device(s) have active constraints', async () => {
+      app = new WebcamApp()
+      await app.$nextTick()
+      expect(app.lastVideoInputDeviceId).toEqual(videoDevice)
+      expect(app.lastAudioInputDeviceId).toEqual(audioDevice)
+    })
+
+    test('When constraints are currently inactive (false)', async () => {
+      app.lastUserMediaConstraints.video = false
+      app.lastUserMediaConstraints.audio = false
+
+      app = new WebcamApp()
+      await app.$nextTick()
+      expect(app.lastVideoInputDeviceId).toEqual(videoDevice)
+      expect(app.lastAudioInputDeviceId).toEqual(audioDevice)
+    })
+  })
+
   describe('Watch', () => {
     test('Changes to \'lastUserMediaConstraints\' are saved in localStorage', async () => {
       let constraints = {}

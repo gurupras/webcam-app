@@ -49,7 +49,7 @@ class WebcamApp {
           selfWebcamStream: undefined,
           micPermissionState: 'prompt',
           cameraPermissionState: 'prompt',
-          lastUserMediaConstraints: defaultConstraints,
+          lastUserMediaConstraints: undefined,
           selfAudioTrackEnabled: false,
           selfVideoTrackEnabled: false,
           lastVideoInputDeviceId: 'default',

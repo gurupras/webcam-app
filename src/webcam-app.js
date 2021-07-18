@@ -395,10 +395,10 @@ class WebcamApp {
         this.setDefaultUserMediaConstraints(defaultConstraints)
         const { lastUserMediaConstraintsKey, lastUserMediaAudioDeviceKey, lastUserMediaVideoDeviceKey } = this
         let lastUsedConstraints = localStorage.getItem(lastUserMediaConstraintsKey)
+        const defaults = this.defaultUserMediaConstraints()
         if (lastUsedConstraints) {
           try {
             lastUsedConstraints = JSON.parse(lastUsedConstraints)
-            const defaults = this.defaultUserMediaConstraints()
             // Merge optional constraints of each device
             // These may be out of order, so a straight flatten will not work
             const devices = [...new Set([...Object.keys(defaults), ...Object.keys(lastUsedConstraints)])]
@@ -453,6 +453,8 @@ class WebcamApp {
             this.lastUserMediaConstraints = unflattened
           } catch (e) {
           }
+        } else {
+          this.lastUserMediaConstraints = defaults
         }
       }
     })

@@ -367,7 +367,11 @@ class WebcamApp {
             return
           }
           newTracks.forEach(t => newWebcamStream.addTrack(t))
-          this.selfWebcamStream = newWebcamStream
+          return this.onStreamUpdated(newWebcamStream).then(() => {
+            this.selfWebcamStream = newWebcamStream
+          })
+        },
+        async onStreamUpdated () {
         },
         stopCamera () {
           this.updateVideoStream()

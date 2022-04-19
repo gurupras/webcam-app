@@ -183,8 +183,8 @@ class WebcamApp {
             // We just requested camera
             this.selfVideoTrackEnabled = true
             const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
-            this.updateVideoStream(videoStream)
-            this.updateAudioStream(audioStream)
+            await this.updateVideoStream(videoStream)
+            await this.updateAudioStream(audioStream)
             // Ensure that the audio track is in the right state
             await this.$nextTick()
             const audioTrack = stream.getAudioTracks()[0]
@@ -212,8 +212,8 @@ class WebcamApp {
             // We just requested microphone
             this.selfAudioTrackEnabled = true
             const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
-            this.updateVideoStream(videoStream)
-            this.updateAudioStream(audioStream)
+            await this.updateVideoStream(videoStream)
+            await this.updateAudioStream(audioStream)
             // Ensure that the video track is in the right state
             await this.$nextTick()
             const videoTrack = stream.getVideoTracks()[0]
@@ -324,8 +324,8 @@ class WebcamApp {
             if (selfWebcamStream) {
               const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
               const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
-              this.updateVideoStream(videoStream)
-              this.updateAudioStream(audioStream)
+              await this.updateVideoStream(videoStream)
+              await this.updateAudioStream(audioStream)
             }
           }
         },
@@ -343,7 +343,7 @@ class WebcamApp {
             stream
           })
         },
-        updateStream ({ name, fn, stream }) {
+        async updateStream ({ name, fn, stream }) {
           if (stream) {
             this[name] = new ProxyMediaStream(stream)
           } else {
@@ -367,17 +367,16 @@ class WebcamApp {
             return
           }
           newTracks.forEach(t => newWebcamStream.addTrack(t))
-          return this.onStreamUpdated(newWebcamStream).then(() => {
-            this.selfWebcamStream = newWebcamStream
-          })
+          await this.onStreamUpdated(newWebcamStream)
+          this.selfWebcamStream = newWebcamStream
         },
         async onStreamUpdated () {
         },
         stopCamera () {
-          this.updateVideoStream()
+          return this.updateVideoStream()
         },
         stopMicrophone () {
-          this.updateAudioStream()
+          return this.updateAudioStream()
         },
         async enumerateDevices (type, devices) {
           if (!devices) {

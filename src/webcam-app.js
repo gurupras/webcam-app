@@ -8,6 +8,8 @@ const LastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
 const LastUserMediaVideoDeviceKey = '__webcam-app__:lastUserDevice:video'
 const LastUserMediaAudioDeviceKey = '__webcam-app__:lastUserDevice:audio'
 
+export const WebcamStreamUpdateEvent = 'webcam-stream-update'
+
 const defaultOptions = () => {
   return {
     keys: {
@@ -191,6 +193,7 @@ class WebcamApp {
             if (audioTrack) {
               audioTrack.enabled = this.selfAudioTrackEnabled
             }
+            this.$emit(WebcamStreamUpdateEvent)
           } catch (err) {
             this.handleError(err, 'webcam', 'video', 'cameraPermissionState')
           }
@@ -220,6 +223,7 @@ class WebcamApp {
             if (videoTrack) {
               videoTrack.enabled = this.selfVideoTrackEnabled
             }
+            this.$emit(WebcamStreamUpdateEvent)
           } catch (err) {
             this.handleError(err, 'microphone', 'audio', 'micPermissionState')
           }
@@ -326,6 +330,7 @@ class WebcamApp {
               const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
               await this.updateVideoStream(videoStream)
               await this.updateAudioStream(audioStream)
+              this.$emit(WebcamStreamUpdateEvent)
             }
           }
         },
@@ -372,11 +377,13 @@ class WebcamApp {
         },
         async onStreamUpdated () {
         },
-        stopCamera () {
-          return this.updateVideoStream()
+        async stopCamera () {
+          await this.updateVideoStream()
+          this.$emit(WebcamStreamUpdateEvent)
         },
-        stopMicrophone () {
-          return this.updateAudioStream()
+        async stopMicrophone () {
+          await this.updateAudioStream()
+          this.$emit(WebcamStreamUpdateEvent)
         },
         async enumerateDevices (type, devices) {
           if (!devices) {

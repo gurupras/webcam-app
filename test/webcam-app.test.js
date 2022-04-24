@@ -2,7 +2,7 @@ import { FakeMediaStream, FakeMediaTrack, LocalStorageMock, vueWaitForWatch as w
 import ProxyMediaStream from '@gurupras/proxy-media-stream'
 import deepmerge from 'deepmerge'
 
-import WebcamApp from '../index'
+import WebcamApp, { WebcamStreamUpdateEvent } from '../index'
 
 function mockGetUserMedia () {
   global.navigator.mediaDevices.getUserMedia = jest.fn().mockImplementation(async ({ audio, video }) => {
@@ -335,6 +335,11 @@ describe('WebcamApp', () => {
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(2)
         expect(app.selfAudioStream.getTracks()[0].enabled).toBeFalse()
       })
+      test('Emits \'webcam-stream-update\'', async () => {
+        const promise = testForEvent(app, WebcamStreamUpdateEvent, { vue: true, timeout: 100 })
+        await app.requestCamera()
+        await expect(promise).toResolve()
+      })
       describe('Error handling', () => {
         beforeEach(() => {
         })
@@ -412,6 +417,11 @@ describe('WebcamApp', () => {
         expect(app.selfAudioStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(2)
         expect(app.selfVideoStream.getTracks()[0].enabled).toBeFalse()
+      })
+      test('Emits \'webcam-stream-update\'', async () => {
+        const promise = testForEvent(app, WebcamStreamUpdateEvent, { vue: true, timeout: 100 })
+        await app.requestMicrophone()
+        await expect(promise).toResolve()
       })
       describe('Error handling', () => {
         beforeEach(() => {
@@ -549,7 +559,7 @@ describe('WebcamApp', () => {
           updateWithStreams()
           const newDevice = 'dev-2'
           await app.switchDevice(type, newDevice)
-          await expect(app.isSelected(device, newDevice)).toBeTrue()
+          expect(app.isSelected(device, newDevice)).toBeTrue()
         })
         test('Changing device does not call getUserMedia if there was no active stream(s)', async () => {
           const newDevice = 'dev-2'
@@ -590,6 +600,13 @@ describe('WebcamApp', () => {
           expect(expectedConstraints[otherDevice]).toEqual(oldConstraints[otherDevice])
         })
       })
+      test('Emits \'webcam-stream-update\'', async () => {
+        updateWithStreams()
+        const newDevice = 'dev-2'
+        const promise = testForEvent(app, WebcamStreamUpdateEvent, { vue: true, timeout: 100 })
+        await app.switchDevice('videoInput', newDevice)
+        await expect(promise).toResolve()
+      })
     })
 
     describe('stopCamera', () => {
@@ -609,6 +626,11 @@ describe('WebcamApp', () => {
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfWebcamStream.getAudioTracks()).toBeArrayOfSize(1)
       })
+      test('Emits \'webcam-stream-update\'', async () => {
+        const promise = testForEvent(app, WebcamStreamUpdateEvent, { vue: true, timeout: 100 })
+        await app.stopMicrophone()
+        await expect(promise).toResolve()
+      })
     })
 
     describe('stopMicrophone', () => {
@@ -627,6 +649,11 @@ describe('WebcamApp', () => {
         expect(app.selfAudioStream).toBe(null)
         expect(app.selfWebcamStream.getTracks()).toBeArrayOfSize(1)
         expect(app.selfWebcamStream.getVideoTracks()).toBeArrayOfSize(1)
+      })
+      test('Emits \'webcam-stream-update\'', async () => {
+        const promise = testForEvent(app, WebcamStreamUpdateEvent, { vue: true, timeout: 100 })
+        await app.stopMicrophone()
+        await expect(promise).toResolve()
       })
     })
     describe('Preserve deviceId', () => {

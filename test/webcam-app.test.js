@@ -36,42 +36,20 @@ describe('WebcamApp', () => {
     app.lastUserMediaConstraints = app.defaultUserMediaConstraints() // TODO: Figure out if this should be here since we should be using new LocalStorageMocks each time
   })
 
+  test.each([
+    [null],
+    [undefined]
+  ])('Calling with %s options uses default options', async (val) => {
+    const app1 = new WebcamApp(undefined, val)
+    expect(app1.lastUserMediaConstraintsKey).toEqual(app.lastUserMediaConstraintsKey)
+  })
+
   test('No duplicates when LocalStorage contains prior constraints', async () => {
     const expected = JSON.parse(localStorage[lastUserMediaConstraintsKey])
     expect(app.lastUserMediaConstraints).toEqual(expected)
     // When we create a new WebcamApp, the resulting constraints-merge should not create duplicates
     app = new WebcamApp()
     expect(app.lastUserMediaConstraints).toEqual(expected)
-  })
-
-  test('Different order of optional constraints don\'t cause duplicates', async () => {
-    const { lastUserMediaConstraints: { audio: { optional } } } = app
-    const sourceIDConstraint = optional.find(x => x.sourceId)
-    const sourceIDConstraintIndex = optional.indexOf(sourceIDConstraint)
-    // TODO: We should be testing a custom set of constraints that is known to have more than 1 value
-    let promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-    optional.splice(sourceIDConstraintIndex, 1)
-    await expect(promise).toResolve()
-
-    promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-    optional.splice(sourceIDConstraintIndex - 1, 0, sourceIDConstraint)
-    await expect(promise).toResolve()
-
-    // Modify the value of this constraint
-    promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-    sourceIDConstraint.sourceId = 'dummy'
-    await expect(promise).toResolve()
-
-    // Now, create a new instance of WebcamApp which will use the default order of optional constraints
-    // And ensure that there is only one sourceId constraint and that its value is 'dummy'
-    app = new WebcamApp()
-    {
-      const { lastUserMediaConstraints: { audio: { optional } } } = app
-      const sourceIDConstraints = optional.filter(x => x.sourceId)
-      expect(sourceIDConstraints).toBeArrayOfSize(1)
-      const [sourceIDConstraint] = sourceIDConstraints
-      expect(sourceIDConstraint.sourceId).toEqual('dummy')
-    }
   })
 
   describe('Restores last used device ID', () => {
@@ -82,17 +60,14 @@ describe('WebcamApp', () => {
       audioDevice = 'device-2'
       const constraints = {
         video: {
-          optional: [
-            { minFrameRate: 30 },
-            { maxFrameRate: 30 },
-            { sourceId: videoDevice },
-            { minWidth: 320 }
-          ]
+          frameRate: { ideal: 30 },
+          deviceId: { ideal: [videoDevice] }
         },
         audio: {
-          optional: [
-            { sourceId: audioDevice }
-          ]
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          deviceId: { ideal: [audioDevice] }
         }
       }
       app.lastUserMediaConstraints = constraints
@@ -197,7 +172,7 @@ describe('WebcamApp', () => {
       beforeEach(() => {
         defaults = {
           video: 'dummy',
-          audio: { optional: { source: 'dummy' } }
+          audio: { deviceId: { ideal: ['dummy'] } }
         }
       })
       test('Properly overrides defaultUserMediaConstraints', async () => {
@@ -450,6 +425,14 @@ describe('WebcamApp', () => {
       })
     })
 
+    describe('_restoreDeviceId', () => {
+      test('Silent no-op if no deviceId is available', async () => {
+        delete localStorage[app.lastUserMediaVideoDeviceKey]
+        const spy = jest.spyOn(app, '_addDeviceId')
+        app._restoreDeviceId(app.lastUserMediaConstraints, 'video', app.lastUserMediaVideoDeviceKey)
+        expect(spy).not.toHaveBeenCalled()
+      })
+    })
     describe('getSelectedDeviceId', () => {
       test('Return false if lastUserMediaConstraints[device] == true', async () => {
         app.lastUserMediaConstraints = {
@@ -464,21 +447,6 @@ describe('WebcamApp', () => {
             deviceId: {
               exact: 'device-1'
             }
-          },
-          audio: true
-        }
-        expect(app.getSelectedDeviceId('video')).toEqual('device-1')
-      })
-
-      test('Works even if device is specified as an optional constraint', async () => {
-        app.lastUserMediaConstraints = {
-          video: {
-            optional: [
-              { minFrameRate: 30 },
-              { maxFrameRate: 30 },
-              { sourceId: 'device-1' },
-              { minWidth: 320 }
-            ]
           },
           audio: true
         }
@@ -505,39 +473,20 @@ describe('WebcamApp', () => {
         expect(app.isSelected('video', 'device-2')).toBe(false)
         expect(app.isSelected('video', 'device-1')).toBe(true)
       })
-      test('Works even if device is specified as an optional constraint', async () => {
-        app.lastUserMediaConstraints = {
-          video: {
-            optional: [
-              { minFrameRate: 30 },
-              { maxFrameRate: 30 },
-              { sourceId: 'device-1' },
-              { minWidth: 320 }
-            ]
-          },
-          audio: true
-        }
-        expect(app.isSelected('video', 'device-2')).toBe(false)
-        expect(app.isSelected('video', 'device-1')).toBe(true)
-      })
     })
 
     describe('switchDevice', () => {
       let videoStream
       let audioStream
       let stream
-      let audioSource
-      let videoSource
       beforeEach(() => {
         mockGetUserMedia()
       })
 
-      // Add a bunch of streams and default sourceIds
+      // Add a bunch of streams and default deviceId
       function updateWithStreams () {
-        videoSource = app.lastUserMediaConstraints.video.optional.find(x => x.sourceId)
-        audioSource = app.lastUserMediaConstraints.audio.optional.find(x => x.sourceId)
-        videoSource.sourceId = 'vd-1'
-        audioSource.sourceId = 'ad-1'
+        app.lastUserMediaConstraints.video.deviceId.ideal = ['vd-1']
+        app.lastUserMediaConstraints.audio.deviceId.ideal = ['vd-2']
 
         stream = new FakeMediaStream(null, { numVideoTracks: 1, numAudioTracks: 1 })
         const { videoStream: vStream, audioStream: aStream } = ProxyMediaStream.splitStream(stream)
@@ -594,7 +543,7 @@ describe('WebcamApp', () => {
           await app.switchDevice(type, newDevice)
           // await expect().toResolve()
           const expectedConstraints = deepmerge({}, oldConstraints)
-          expectedConstraints[device].optional.find(x => x.sourceId).sourceId = newDevice
+          expectedConstraints[device].deviceId.ideal = [newDevice]
           expect(global.navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(expectedConstraints)
           expect(app.selfVideoStream).not.toEqual(videoStream)
           expect(expectedConstraints[otherDevice]).toEqual(oldConstraints[otherDevice])
@@ -662,30 +611,21 @@ describe('WebcamApp', () => {
         mockGetUserMedia()
         const defaultConstraints = {
           video: {
-            optional: [
-              { minFrameRate: 30 },
-              { maxFrameRate: 30 },
-              { sourceId: 'video-device-1' },
-              { minWidth: 320 }
-            ]
+            frameRate: { ideal: 30 },
+            deviceId: { ideal: ['video-device-1'] }
           },
           audio: {
-            optional: [
-              { echoCancellation: true },
-              { noiseSuppression: true },
-              { sourceId: 'audio-device-1' },
-              { autoGainControl: true },
-              { googEchoCancellation: true }
-            ]
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            deviceId: { ideal: ['audio-device-1'] }
           }
         }
         app.lastUserMediaConstraints = deepmerge({}, defaultConstraints)
 
         newConstraints = deepmerge({}, defaultConstraints)
-        const videoEntry = app._getOptionalDeviceIdEntry('video', newConstraints)
-        videoEntry.sourceId = 'video-device-2'
-        const audioEntry = app._getOptionalDeviceIdEntry('audio', newConstraints)
-        audioEntry.sourceId = 'audio-device-2'
+        newConstraints.video.deviceId.ideal = ['video-device-2']
+        newConstraints.audio.deviceId.ideal = ['audio-device-2']
       })
 
       test('Setting audio/video to false preserves deviceId (if previously specified)', async () => {

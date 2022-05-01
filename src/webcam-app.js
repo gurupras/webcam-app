@@ -230,37 +230,17 @@ class WebcamApp {
         },
         _addDeviceId (constraints, deviceId, device) {
           let { [device]: deviceConstraints } = constraints
-          if (!deviceConstraints) {
+          if (!deviceConstraints || typeof deviceConstraints === 'boolean') {
             deviceConstraints = {}
-            constraints[device] = deviceConstraints
+            this.$set(constraints, 'device', deviceConstraints)
           }
-          let entry = this._getOptionalDeviceIdEntry(device, constraints)
-          if (!entry) {
-            if (!deviceConstraints.optional) {
-              // There is no optional entry
-              deviceConstraints.optional = []
-            }
-            entry = {}
-            deviceConstraints.optional.push(entry)
-          }
-          this.$set(entry, 'sourceId', deviceId)
+          this.$set(deviceConstraints, 'deviceId', { ideal: [deviceId] })
         },
         _restoreDeviceId (constraints, device, key) {
           const lastUsedDeviceId = localStorage.getItem(key)
           if (lastUsedDeviceId) {
             this._addDeviceId(constraints, lastUsedDeviceId, device)
           }
-        },
-        _getOptionalDeviceIdEntry (device, constraints) {
-          const { [device]: deviceConstraints } = constraints
-          if (!deviceConstraints) {
-            return null
-          }
-          const { optional } = deviceConstraints
-          if (!optional) {
-            return null
-          }
-          return optional.find(x => x.sourceId)
         },
         /**
          *
@@ -273,15 +253,11 @@ class WebcamApp {
             return null
           }
           const { deviceId: deviceIdEntry = {} } = deviceConstraints
-          let { exact: existingDeviceId } = deviceIdEntry
-          if (!existingDeviceId) {
-            // Check optional constraints
-            const { optional = [] } = deviceConstraints
-            const deviceConstraint = optional.find(x => x.sourceId)
-            if (deviceConstraint) {
-              existingDeviceId = deviceConstraint.sourceId
-            }
+          const { ideal = [], exact } = deviceIdEntry
+          if (exact) {
+            return exact
           }
+          const [existingDeviceId] = ideal
           return existingDeviceId || null
         },
         /**
@@ -306,13 +282,14 @@ class WebcamApp {
           const { lastUserMediaConstraints, selfWebcamStream } = this
           let mediaConstraints
           let deviceKey
+          const newConstraints = JSON.parse(JSON.stringify(lastUserMediaConstraints))
           switch (type) {
             case 'videoInput':
-              mediaConstraints = lastUserMediaConstraints.video
+              mediaConstraints = newConstraints.video
               deviceKey = 'lastVideoInputDeviceId'
               break
             case 'audioInput':
-              mediaConstraints = lastUserMediaConstraints.audio
+              mediaConstraints = newConstraints.audio
               deviceKey = 'lastAudioInputDeviceId'
               break
             default:
@@ -322,17 +299,17 @@ class WebcamApp {
             // We don't have active constraints. Just store it as the last used device
             this[deviceKey] = deviceId
           } else {
-            const { optional } = mediaConstraints
-            const sourceIDEntry = optional.find(x => x.sourceId)
-            sourceIDEntry.sourceId = deviceId
+            // Try specific
+            mediaConstraints.deviceId = { ideal: [deviceId] }
             if (selfWebcamStream) {
-              const newStream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints)
+              const newStream = await navigator.mediaDevices.getUserMedia(newConstraints)
               const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
               await this.updateVideoStream(videoStream)
               await this.updateAudioStream(audioStream)
               this.$emit(WebcamStreamUpdateEvent)
             }
           }
+          this.lastUserMediaConstraints = newConstraints
         },
         updateVideoStream (stream) {
           return this.updateStream({
@@ -409,40 +386,10 @@ class WebcamApp {
         if (lastUsedConstraints) {
           try {
             lastUsedConstraints = JSON.parse(lastUsedConstraints)
-            // Merge optional constraints of each device
-            // These may be out of order, so a straight flatten will not work
-            const devices = [...new Set([...Object.keys(defaults), ...Object.keys(lastUsedConstraints)])]
-            const constraintsToMerge = [defaults, lastUsedConstraints] // The order matters. We want to override lastUserMediaConstraints with lastUsedConstraints
-            const optionalConstraints = {}
-            for (const device of devices) {
-              const optional = {}
-              for (const constraints of constraintsToMerge) {
-                const deviceConstraints = constraints[device]
-                const { optional: opt = [] } = deviceConstraints
-                for (const o of opt) {
-                  for (const [k, v] of Object.entries(o)) {
-                    optional[k] = v
-                  }
-                }
-                // Delete this from constraints since we're going to merge it back in
-                delete deviceConstraints.optional
-              }
-              optionalConstraints[device] = optional
-            }
             const flatDefaults = Flat.flatten(defaults)
             const flatLastUsed = Flat.flatten(lastUsedConstraints)
             const flatMerged = deepmerge(flatDefaults, flatLastUsed)
             const unflattened = Flat.unflatten(flatMerged)
-            for (const device of devices) {
-              if (!unflattened[device]) {
-                continue
-              }
-              const optional = []
-              for (const [k, v] of Object.entries(optionalConstraints[device])) {
-                optional.push({ [k]: v })
-              }
-              unflattened[device].optional = optional
-            }
             const data = {
               audio: [lastUserMediaAudioDeviceKey, 'lastAudioInputDeviceId'],
               video: [lastUserMediaVideoDeviceKey, 'lastVideoInputDeviceId']
@@ -474,28 +421,14 @@ class WebcamApp {
 function defaultUserMediaConstraints () {
   return {
     video: {
-      optional: [
-        { minFrameRate: 30 },
-        { maxFrameRate: 30 },
-        { sourceId: 'default' }
-      ]
+      frameRate: { ideal: 30 },
+      deviceId: { ideal: ['default'] }
     },
     audio: {
-      optional: [
-        { echoCancellation: true },
-        { noiseSuppression: true },
-        { autoGainControl: true },
-        { googEchoCancellation: true },
-        { googEchoCancellation2: true },
-        { googNoiseSuppression: true },
-        { googNoiseSuppression2: true },
-        { googAutoGainControl: true },
-        { googAutoGainControl2: true },
-        { googHighpassFilter: true },
-        { googTypingNoiseDetection: true },
-        { googAudioMirroring: false },
-        { sourceId: 'default' }
-      ]
+      echoCancellation: { ideal: true },
+      noiseSuppression: { ideal: true },
+      autoGainControl: { ideal: true },
+      deviceId: { ideal: ['default'] }
     }
   }
 }

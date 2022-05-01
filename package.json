@@ -1,6 +1,6 @@
 {
   "name": "@gurupras/webcam-app",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Self-contained class that is used for webcam/mic getUserMedia calls, streams and state",
   "main": "index.js",
   "scripts": {

@@ -303,13 +303,13 @@ class WebcamApp {
             mediaConstraints.deviceId = { ideal: [deviceId] }
             if (selfWebcamStream) {
               const newStream = await navigator.mediaDevices.getUserMedia(newConstraints)
+              this.lastUserMediaConstraints = newConstraints
               const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
               await this.updateVideoStream(videoStream)
               await this.updateAudioStream(audioStream)
               this.$emit(WebcamStreamUpdateEvent)
             }
           }
-          this.lastUserMediaConstraints = newConstraints
         },
         updateVideoStream (stream) {
           return this.updateStream({

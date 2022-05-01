@@ -110,7 +110,7 @@ describe('WebcamApp', () => {
       // Alter this constraint a little
       mockGetUserMedia()
       const promise = testForEvent(app, constraintsUpdateEvent, { vue: true, timeout: 300 })
-      await app.switchDevice('videoInput', 'dummy')
+      app.lastUserMediaConstraints.video.deviceId.ideal = ['dummy']
       await expect(promise).toResolve()
       const expected = JSON.stringify(app.lastUserMediaConstraints)
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(expected)
@@ -513,6 +513,13 @@ describe('WebcamApp', () => {
         test('Changing device does not call getUserMedia if there was no active stream(s)', async () => {
           const newDevice = 'dev-2'
           await app.switchDevice(type, newDevice)
+          expect(global.navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
+        })
+        test('Changing device does not update lastUserMediaConstraints if there was no active stream(s)', async () => {
+          const newDevice = 'dev-2'
+          const promise = testForNoEvent(app, constraintsUpdateEvent, { vue: true, timeout: 100 })
+          await app.switchDevice(type, newDevice)
+          await expect(promise).toResolve()
           expect(global.navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled()
         })
         test('Changing device when there there is no current constraint will use the new device in subsequent calls', async () => {

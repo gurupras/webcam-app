@@ -433,4 +433,6 @@ function defaultUserMediaConstraints () {
   }
 }
 
-export default WebcamApp
+export {
+  WebcamApp
+}

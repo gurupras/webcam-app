@@ -9,7 +9,7 @@ import {
 import ProxyMediaStream from '@gurupras/proxy-media-stream'
 import deepmerge from 'deepmerge'
 
-import WebcamApp, { WebcamStreamUpdateEvent } from '../index'
+import { WebcamApp, WebcamStreamUpdateEvent } from '../index'
 import { describe, test, expect, beforeEach, vi, beforeAll } from 'vitest'
 
 beforeAll(() => {

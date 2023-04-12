@@ -1,11 +1,23 @@
-import { FakeMediaStream, FakeMediaTrack, LocalStorageMock, vueWaitForWatch as waitForWatch, testForEvent, testForNoEvent } from '@gurupras/test-helpers' // Must be first so that global.MediaStream is updated
+import {
+  FakeMediaStream,
+  FakeMediaTrack,
+  LocalStorageMock,
+  vueWaitForWatch as waitForWatch,
+  testForEvent,
+  testForNoEvent
+} from '@gurupras/test-helpers' // Must be first so that global.MediaStream is updated
 import ProxyMediaStream from '@gurupras/proxy-media-stream'
 import deepmerge from 'deepmerge'
 
 import WebcamApp, { WebcamStreamUpdateEvent } from '../index'
+import { describe, test, expect, beforeEach, vi, beforeAll } from 'vitest'
+
+beforeAll(() => {
+  global.jest = vi
+})
 
 function mockGetUserMedia () {
-  global.navigator.mediaDevices.getUserMedia = jest.fn().mockImplementation(async ({ audio, video }) => {
+  global.navigator.mediaDevices.getUserMedia = vi.fn().mockImplementation(async ({ audio, video }) => {
     const stream = new FakeMediaStream()
     if (audio) {
       stream.addTrack(new FakeMediaTrack({ kind: 'audio' }))
@@ -20,6 +32,7 @@ function mockGetUserMedia () {
 let lastUserMediaConstraintsKey
 const constraintsUpdateEvent = 'constraints-updated'
 describe('WebcamApp', () => {
+  /** @type {WebcamApp} */
   let app
   beforeEach(async () => {
     global.localStorage = new LocalStorageMock()
@@ -45,7 +58,7 @@ describe('WebcamApp', () => {
   })
 
   test('No duplicates when LocalStorage contains prior constraints', async () => {
-    const expected = JSON.parse(localStorage[lastUserMediaConstraintsKey])
+    const expected = JSON.parse(localStorage.getItem(lastUserMediaConstraintsKey))
     expect(app.lastUserMediaConstraints).toEqual(expected)
     // When we create a new WebcamApp, the resulting constraints-merge should not create duplicates
     app = new WebcamApp()
@@ -197,7 +210,7 @@ describe('WebcamApp', () => {
     describe('checkPermissions', () => {
       test('Properly sets (mic|camera)PermissionState on success of navigator.permissions.query', async () => {
         const result = { state: 'granted' }
-        global.navigator.permissions.query = jest.fn().mockResolvedValue(result)
+        global.navigator.permissions.query = vi.fn().mockResolvedValue(result)
         await expect(app.checkPermissions()).toResolve()
         await expect(global.navigator.permissions.query).toHaveBeenCalledTimes(2)
         // First, checks mic, then camera
@@ -209,7 +222,7 @@ describe('WebcamApp', () => {
 
       test('Properly sets (mic|camera)PermissionState=denied on failure of navigator.permissions.query', async () => {
         const result = 'denied'
-        global.navigator.permissions.query = jest.fn().mockRejectedValue(new Error('failed'))
+        global.navigator.permissions.query = vi.fn().mockRejectedValue(new Error('failed'))
         await expect(app.checkPermissions()).toResolve()
         await expect(global.navigator.permissions.query).toHaveBeenCalledTimes(2)
         // First, checks mic, then camera
@@ -219,7 +232,7 @@ describe('WebcamApp', () => {
         expect(app.cameraPermissionState).toEqual(result)
 
         let idx = 0
-        global.navigator.permissions.query = jest.fn().mockImplementation(async () => {
+        global.navigator.permissions.query = vi.fn().mockImplementation(async () => {
           idx++
           if (idx % 2 === 0) {
             return { state: 'granted' }
@@ -319,7 +332,7 @@ describe('WebcamApp', () => {
         beforeEach(() => {
         })
         test('Throws error on failure', async () => {
-          navigator.mediaDevices.getUserMedia = jest.fn().mockRejectedValue({
+          navigator.mediaDevices.getUserMedia = vi.fn().mockRejectedValue({
             name: 'unknown',
             message: 'dummy'
           })
@@ -330,7 +343,7 @@ describe('WebcamApp', () => {
         })
 
         test('Sets cameraPermissionState=denied when it fails with NotAllowedError', async () => {
-          navigator.mediaDevices.getUserMedia = jest.fn().mockRejectedValue({
+          navigator.mediaDevices.getUserMedia = vi.fn().mockRejectedValue({
             name: 'NotAllowedError',
             message: 'dummy'
           })
@@ -403,7 +416,7 @@ describe('WebcamApp', () => {
           console.error = () => { }
         })
         test('Throws error on failure', async () => {
-          navigator.mediaDevices.getUserMedia = jest.fn().mockRejectedValue({
+          navigator.mediaDevices.getUserMedia = vi.fn().mockRejectedValue({
             name: 'unknown',
             message: 'dummy'
           })
@@ -414,7 +427,7 @@ describe('WebcamApp', () => {
         })
 
         test('Sets micPermissionState=denied when it fails with NotAllowedError', async () => {
-          navigator.mediaDevices.getUserMedia = jest.fn().mockRejectedValue({
+          navigator.mediaDevices.getUserMedia = vi.fn().mockRejectedValue({
             name: 'NotAllowedError',
             message: 'dummy'
           })
@@ -427,8 +440,8 @@ describe('WebcamApp', () => {
 
     describe('_restoreDeviceId', () => {
       test('Silent no-op if no deviceId is available', async () => {
-        delete localStorage[app.lastUserMediaVideoDeviceKey]
-        const spy = jest.spyOn(app, '_addDeviceId')
+        localStorage.removeItem(app.lastUserMediaVideoDeviceKey)
+        const spy = vi.spyOn(app, '_addDeviceId')
         app._restoreDeviceId(app.lastUserMediaConstraints, 'video', app.lastUserMediaVideoDeviceKey)
         expect(spy).not.toHaveBeenCalled()
       })
@@ -728,7 +741,7 @@ describe('WebcamApp', () => {
             label: 'dummy audio device 3'
           }
         ]
-        global.navigator.mediaDevices.enumerateDevices = jest.fn().mockReturnValue(devices)
+        global.navigator.mediaDevices.enumerateDevices = vi.fn().mockReturnValue(devices)
       })
       test('enumerateDevices with no argument returns all devices', async () => {
         await expect(app.enumerateDevices()).resolves.toIncludeSameMembers(devices)

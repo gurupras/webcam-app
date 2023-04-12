@@ -1,8 +1,8 @@
-const Vue = require('vue')
-const deepmerge = require('deepmerge')
-const Flat = require('flat')
+import Vue from 'vue'
+import deepmerge from 'deepmerge'
+import Flat from 'flat'
 
-const ProxyMediaStream = require('@gurupras/proxy-media-stream')
+import ProxyMediaStream from '@gurupras/proxy-media-stream'
 
 const LastUserMediaConstraintsKey = '__webcam-app__:lastUserMediaConstraints'
 const LastUserMediaVideoDeviceKey = '__webcam-app__:lastUserDevice:video'

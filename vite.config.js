@@ -10,21 +10,13 @@ export default defineConfig({
       name: 'WebcamApp',
       formats: ['es', 'cjs', 'umd'],
       fileName: 'webcam-app'
-    },
-    rollupOptions: {
-      external: ['vue'],
-      output: {
-        globals: {
-          vue: 'Vue'
-        }
-      }
     }
   },
   test: {
     environment: 'jsdom',
     coverage: {
       provider: 'c8',
-      reporter: 'html'
+      reporter: ['html', 'text']
     },
     setupFiles: ['./test/testSetup.js']
   }

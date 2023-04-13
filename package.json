@@ -33,15 +33,14 @@
     "jsdom": "^21.1.1",
     "vite": "^4.2.1",
     "vitest": "^0.30.1",
-    "vue": "^2.7.14"
+    "@vue/reactivity": "^3.2.47",
+    "vue": "^3.2.47"
   },
   "dependencies": {
     "@gurupras/proxy-media-stream": "^0.3.1",
     "deepmerge": "^4.3.1",
+    "emittery": "^1.0.1",
     "flat": "^5.0.2"
-  },
-  "peerDependencies": {
-    "vue": "^2.7.14"
   },
   "files": [
     "./index.js",
@@ -49,7 +48,8 @@
     "./dist/"
   ],
   "exports": {
-    ".": "./index.js",
+    ".": "./dist/webcam-app.js",
+    "./dist/webcam-app.js": "./dist/webcam-app.js",
     "./index.js": "./index.js"
   }
 }

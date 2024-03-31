@@ -1,4 +1,4 @@
-import { watch, isVue2 } from 'vue-demi'
+import { watch } from '@vue-reactivity/watch'
 import {
   FakeMediaStream,
   FakeMediaTrack
@@ -16,7 +16,6 @@ import { describe, test, expect, beforeEach, vi, beforeAll } from 'vitest'
 import { WebcamApp, WebcamStreamUpdateEvent } from '../index'
 import { nextTick } from '../src/utils'
 
-console.log(`Vue2=${isVue2}`)
 beforeAll(() => {
   global.jest = vi
 })

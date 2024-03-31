@@ -1,5 +1,6 @@
 import Emittery from 'emittery'
-import { ref, watch } from 'vue-demi'
+import { ref } from '@vue/reactivity'
+import { watch } from '@vue-reactivity/watch'
 import deepmerge from 'deepmerge'
 import Flat from 'flat'
 
@@ -50,15 +51,17 @@ class WebcamApp {
     this.lastAudioInputDeviceId = ref('default')
     this.lastAudioOutputDeviceId = ref('default')
 
-    watch(this.lastVideoInputDeviceId, (v) => {
+    this.watches = []
+
+    this.watches.push(watch(this.lastVideoInputDeviceId, (v) => {
       const { lastUserMediaVideoDeviceKey } = this
       localStorage.setItem(lastUserMediaVideoDeviceKey, v)
-    })
-    watch(this.lastAudioInputDeviceId, (v) => {
+    }))
+    this.watches.push(watch(this.lastAudioInputDeviceId, (v) => {
       const { lastUserMediaAudioDeviceKey } = this
       localStorage.setItem(lastUserMediaAudioDeviceKey, v)
-    })
-    watch(this.lastUserMediaConstraints, (v, o) => {
+    }))
+    this.watches.push(watch(this.lastUserMediaConstraints, (v, o) => {
       const { lastUserMediaConstraintsKey } = this
 
       const newVideoDeviceId = this.getSelectedDeviceId('video', v)
@@ -77,21 +80,21 @@ class WebcamApp {
       localStorage.setItem(lastUserMediaConstraintsKey, JSON.stringify(v))
     }, {
       deep: true
-    })
+    }))
 
-    watch(this.selfWebcamStream, (v, o) => {
+    this.watches.push(watch(this.selfWebcamStream, (v, o) => {
       this.emit('webcam-stream', { newStream: v, oldStream: o })
-    })
-    watch(this.selfVideoStream, (v, o) => {
+    }))
+    this.watches.push(watch(this.selfVideoStream, (v, o) => {
       if (!v && !this.selfAudioStream.value) {
         this.selfWebcamStream.value = undefined
       }
-    })
-    watch(this.selfAudioStream, (v, o) => {
+    }))
+    this.watches.push(watch(this.selfAudioStream, (v, o) => {
       if (!v && !this.selfVideoStream.value) {
         this.selfWebcamStream.value = undefined
       }
-    })
+    }))
 
     this.setDefaultUserMediaConstraints(defaultConstraints)
     const { lastUserMediaConstraintsKey, lastUserMediaAudioDeviceKey, lastUserMediaVideoDeviceKey } = this
@@ -209,15 +212,20 @@ class WebcamApp {
 
   async requestCamera () {
     const { lastUserMediaConstraints } = this
+    const constraints = { ...lastUserMediaConstraints.value }
     const defaults = this.defaultUserMediaConstraints()
-    if (!lastUserMediaConstraints.value.video) {
-      lastUserMediaConstraints.value.video = defaults.video
-      this._restoreDeviceId(lastUserMediaConstraints, 'video', this.lastUserMediaVideoDeviceKey)
+    if (!constraints.video) {
+      constraints.video = defaults.video
+      if (this.lastVideoInputDeviceId.value) {
+        this._addDeviceId(constraints, this.lastVideoInputDeviceId.value, 'video')
+      }
     }
+
     if (!this.selfAudioStream.value || this.selfAudioStream.value.getTracks().length === 0) {
       // No existing audio stream. Don't request one now.
-      lastUserMediaConstraints.value.audio = false
+      constraints.audio = false
     }
+    lastUserMediaConstraints.value = constraints
     try {
       // console.log(`requestCamera: constraints: ${JSON.stringify(constraints)}`)
       const stream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints.value)
@@ -240,15 +248,18 @@ class WebcamApp {
 
   async requestMicrophone () {
     const { lastUserMediaConstraints } = this
+    const constraints = { ...lastUserMediaConstraints.value }
     const defaults = await this.defaultUserMediaConstraints()
-    if (!lastUserMediaConstraints.value.audio) {
-      lastUserMediaConstraints.value.audio = defaults.audio
-      this._restoreDeviceId(lastUserMediaConstraints, 'audio', this.lastUserMediaAudioDeviceKey)
+    if (!constraints.audio) {
+      constraints.audio = defaults.audio
+      this._addDeviceId(constraints, this.lastAudioInputDeviceId.value, 'audio')
     }
+
     if (!this.selfVideoStream.value || this.selfVideoStream.value.getTracks().length === 0) {
       // No existing video stream. Don't request one now.
-      lastUserMediaConstraints.value.video = false
+      constraints.video = false
     }
+    lastUserMediaConstraints.value = constraints
     try {
       // console.log(`requestMicrophone: constraints: ${JSON.stringify(constraints)}`)
       const stream = await navigator.mediaDevices.getUserMedia(lastUserMediaConstraints.value)
@@ -433,6 +444,12 @@ class WebcamApp {
 
   enumerateAudioOutputDevices (devices) {
     return this.enumerateDevices('audiooutput', devices)
+  }
+
+  destroy () {
+    for (const stopWatch of this.watches) {
+      stopWatch()
+    }
   }
 }
 

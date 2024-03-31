@@ -7,9 +7,10 @@
   "module": "./dist/webcam-app.js",
   "scripts": {
     "build": "vite build",
-    "test": "run-s test:2 test:3",
-    "test:2": "vue-demi-switch 2 && npm run vitest",
-    "test:3": "vue-demi-switch 3 vue3 && npm run vitest",
+    "test": "run-s test:2 test:2.7 test:3",
+    "test:2": "vue-demi-switch 2 vue26 && npm run vitest",
+    "test:2.7": "vue-demi-switch 2.7 vue27 && npm run vitest",
+    "test:3": "vue-demi-switch 3 vue && npm run vitest",
     "vitest": "vitest run --coverage",
     "debug:test": "./node_modules/.bin/vitest --inspect-brk --no-threads"
   },
@@ -36,12 +37,14 @@
     "npm-run-all": "^4.1.5",
     "vite": "^5.2.7",
     "vitest": "^1.4.0",
-    "vue": "^2.6.0",
+    "vue": "^3.4.21",
     "vue-demi": "^0.14.7",
-    "vue3": "npm:vue@3"
+    "vue26": "npm:vue@2.6.0",
+    "vue27": "npm:vue@2.7.0"
   },
   "dependencies": {
     "@gurupras/proxy-media-stream": "^0.3.1",
+    "@vue-reactivity/watch": "^0.2.0",
     "deepmerge": "^4.3.1",
     "emittery": "^1.0.1",
     "flat": "^5.0.2"
@@ -49,6 +52,11 @@
   "peerDependencies": {
     "@vue/composition-api": "^1.7.2",
     "vue": "^2.0.0 || >=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@vue/composition-api": {
+      "optional": true
+    }
   },
   "files": [
     "./index.js",

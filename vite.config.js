@@ -5,6 +5,7 @@ import path from 'path'
 export default defineConfig({
   build: {
     sourcemap: true,
+    minify: false,
     lib: {
       entry: path.resolve(__dirname, 'index.js'),
       name: 'WebcamApp',

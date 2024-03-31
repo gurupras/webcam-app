@@ -3,11 +3,14 @@
   "version": "3.0.0",
   "description": "Self-contained class that is used for webcam/mic getUserMedia calls, streams and state",
   "type": "module",
-  "main": "dist/webcam-app.umd.js",
+  "main": "./dist/webcam-app.cjs",
   "module": "./dist/webcam-app.js",
   "scripts": {
     "build": "vite build",
-    "test": "vitest run --coverage",
+    "test": "run-s test:2 test:3",
+    "test:2": "vue-demi-switch 2 && npm run vitest",
+    "test:3": "vue-demi-switch 3 vue3 && npm run vitest",
+    "vitest": "vitest run --coverage",
     "debug:test": "./node_modules/.bin/vitest --inspect-brk --no-threads"
   },
   "repository": {
@@ -21,20 +24,21 @@
   },
   "homepage": "https://github.com/gurupras/webcam-app#readme",
   "devDependencies": {
-    "@babel/eslint-parser": "^7.12",
     "@gurupras/test-helpers": "^0.5.0",
-    "@vitest/coverage-c8": "^0.30.1",
+    "@vitest/coverage-v8": "^1.4.0",
     "eslint": "^8.38.0",
     "eslint-config-standard": "^17.0.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-n": "^15.7.0",
     "eslint-plugin-promise": "^6.1.1",
-    "jest-extended": "^3.2.4",
-    "jsdom": "^21.1.1",
-    "vite": "^4.2.1",
-    "vitest": "^0.30.1",
-    "@vue/reactivity": "^3.2.47",
-    "vue": "^3.2.47"
+    "jest-extended": "^4.0.2",
+    "jsdom": "^24.0.0",
+    "npm-run-all": "^4.1.5",
+    "vite": "^5.2.7",
+    "vitest": "^1.4.0",
+    "vue": "^2.6.0",
+    "vue-demi": "^0.14.7",
+    "vue3": "npm:vue@3"
   },
   "dependencies": {
     "@gurupras/proxy-media-stream": "^0.3.1",
@@ -42,14 +46,21 @@
     "emittery": "^1.0.1",
     "flat": "^5.0.2"
   },
+  "peerDependencies": {
+    "@vue/composition-api": "^1.7.2",
+    "vue": "^2.0.0 || >=3.0.0"
+  },
   "files": [
     "./index.js",
     "./src/",
     "./dist/"
   ],
   "exports": {
-    ".": "./dist/webcam-app.js",
-    "./dist/webcam-app.js": "./dist/webcam-app.js",
+    ".": {
+      "import": "./dist/webcam-app.js",
+      "require": "./dist/webcam-app.cjs"
+    },
+    "./dist/*": "./dist/*",
     "./index.js": "./index.js"
   }
 }

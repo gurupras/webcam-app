@@ -12,10 +12,13 @@ export default defineConfig({
       fileName: 'webcam-app'
     }
   },
+  optimizeDeps: {
+    exclude: ['vue-demi']
+  },
   test: {
     environment: 'jsdom',
     coverage: {
-      provider: 'c8',
+      provider: 'v8',
       reporter: ['html', 'text']
     },
     setupFiles: ['./test/testSetup.js']

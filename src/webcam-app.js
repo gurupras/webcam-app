@@ -31,6 +31,10 @@ class WebcamApp {
     this.on = emittery.on.bind(emittery)
     this.off = emittery.off.bind(emittery)
     this.emit = emittery.emit.bind(emittery)
+    // For backwards compatibility
+    this.$on = emittery.on.bind(emittery)
+    this.$off = emittery.off.bind(emittery)
+    this.$emit = emittery.emit.bind(emittery)
 
     this.options = deepmerge(defaultOptions, options)
 

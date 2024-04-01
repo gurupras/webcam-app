@@ -1,6 +1,6 @@
 {
   "name": "@gurupras/webcam-app",
-  "version": "3.1.2-rc4",
+  "version": "3.1.2-rc5",
   "description": "Self-contained class that is used for webcam/mic getUserMedia calls, streams and state",
   "type": "module",
   "main": "./dist/webcam-app.cjs",

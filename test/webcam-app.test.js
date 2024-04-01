@@ -1,4 +1,4 @@
-import { watch } from '@vue-reactivity/watch'
+import { watch } from 'vue-demi'
 import {
   FakeMediaStream,
   FakeMediaTrack

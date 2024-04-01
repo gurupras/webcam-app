@@ -1,6 +1,5 @@
 import Emittery from 'emittery'
-import { ref } from '@vue/reactivity'
-import { watch } from '@vue-reactivity/watch'
+import { ref, watch } from 'vue-demi'
 import deepmerge from 'deepmerge'
 import Flat from 'flat'
 

@@ -11,9 +11,6 @@ export default defineConfig({
       name: 'WebcamApp',
       formats: ['es', 'cjs', 'umd'],
       fileName: 'webcam-app'
-    },
-    rollupOptions: {
-      external: ['vue-demi']
     }
   },
   optimizeDeps: {

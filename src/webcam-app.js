@@ -83,7 +83,7 @@ class WebcamApp {
     }))
 
     this.watches.push(watch(this.selfWebcamStream, (v, o) => {
-      this.emit('webcam-stream', { newStream: v, oldStream: o })
+      this.emit(WebcamStreamUpdateEvent, { newStream: v, oldStream: o })
     }))
     this.watches.push(watch(this.selfVideoStream, (v, o) => {
       if (!v && !this.selfAudioStream.value) {

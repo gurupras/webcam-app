@@ -143,9 +143,9 @@ describe('WebcamApp', () => {
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(expected)
     })
 
-    test('Changes to \'selfWebcamStream\' are emitted via \'webcam-stream\' event', async () => {
+    test('Changes to \'selfWebcamStream\' are emitted via WebcamStreamUpdateEvent event', async () => {
       const stream = new FakeMediaStream(null, { numAudioTracks: 2, numVideoTracks: 2 })
-      const promise = testForEvent(app, 'webcam-stream', { timeout: 100 })
+      const promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       await waitForWatch(app.selfWebcamStream, () => { app.selfWebcamStream.value = stream })
       await expect(promise).toResolve()
     })
@@ -158,11 +158,11 @@ describe('WebcamApp', () => {
 
       app.selfVideoStream.value = videoStream
       app.selfAudioStream.value = audioStream
-      promise = testForEvent(app, 'webcam-stream', { timeout: 100 })
+      promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfWebcamStream.value = webcamStream
       await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
 
-      promise = testForEvent(app, 'webcam-stream', { timeout: 100 })
+      promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfVideoStream.value = undefined
       app.selfAudioStream.value = undefined
       await expect(promise).resolves.toEqual({ newStream: undefined, oldStream: webcamStream })
@@ -175,19 +175,19 @@ describe('WebcamApp', () => {
 
       app.selfVideoStream.value = videoStream
       app.selfAudioStream.value = audioStream
-      promise = testForEvent(app, 'webcam-stream', { timeout: 100 })
+      promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfWebcamStream.value = webcamStream
       await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
 
-      promise = testForNoEvent(app, 'webcam-stream', { timeout: 100 })
+      promise = testForNoEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       await expect(promise).toResolve()
 
-      promise = testForNoEvent(app, 'webcam-stream', { timeout: 100 })
+      promise = testForNoEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfVideoStream.value = undefined
       await expect(promise).toResolve()
       app.selfVideoStream.value = videoStream
 
-      promise = testForNoEvent(app, 'webcam-stream', { timeout: 100 })
+      promise = testForNoEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfAudioStream.value = undefined
       await expect(promise).toResolve()
     })

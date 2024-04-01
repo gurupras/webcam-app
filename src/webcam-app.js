@@ -39,6 +39,9 @@ class WebcamApp {
 
     this.options = deepmerge(defaultOptions, options)
 
+    // Expose a watch function so that clients can watch values for changes
+    this.$watch = watch
+
     this.selfVideoStream = ref(undefined)
     this.selfAudioStream = ref(undefined)
     this.selfWebcamStream = ref(undefined)

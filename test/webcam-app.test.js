@@ -143,53 +143,40 @@ describe('WebcamApp', () => {
       expect(localStorage.getItem(lastUserMediaConstraintsKey)).toEqual(expected)
     })
 
-    test('Changes to \'selfWebcamStream\' are emitted via WebcamStreamUpdateEvent event', async () => {
-      const stream = new FakeMediaStream(null, { numAudioTracks: 2, numVideoTracks: 2 })
-      const promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
-      await waitForWatch(app.selfWebcamStream, () => { app.selfWebcamStream.value = stream })
-      await expect(promise).toResolve()
-    })
-
     test('If neither selfVideoStream nor selfAudioStream are present, selfWebcamStream is removed', async () => {
       const videoStream = new FakeMediaStream(null, { numVideoTracks: 2 })
       const audioStream = new FakeMediaStream(null, { numAudioTracks: 2 })
       const webcamStream = new FakeMediaStream([...videoStream.getTracks(), ...audioStream.getTracks()])
-      let promise
 
       app.selfVideoStream.value = videoStream
       app.selfAudioStream.value = audioStream
-      promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfWebcamStream.value = webcamStream
-      await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
+      await nextTick()
 
-      promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfVideoStream.value = undefined
       app.selfAudioStream.value = undefined
-      await expect(promise).resolves.toEqual({ newStream: undefined, oldStream: webcamStream })
+      await nextTick()
+      expect(app.selfWebcamStream.value).toBe(undefined)
     })
     test('If either selfVideoStream or selfAudioStream are present, selfWebcamStream is preserved', async () => {
       const videoStream = new FakeMediaStream(null, { numVideoTracks: 2 })
       const audioStream = new FakeMediaStream(null, { numAudioTracks: 2 })
       const webcamStream = new FakeMediaStream([...videoStream.getTracks(), ...audioStream.getTracks()])
-      let promise
 
       app.selfVideoStream.value = videoStream
       app.selfAudioStream.value = audioStream
-      promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfWebcamStream.value = webcamStream
-      await expect(promise).resolves.toEqual({ newStream: webcamStream, oldStream: undefined })
+      await nextTick()
 
-      promise = testForNoEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
-      await expect(promise).toResolve()
-
-      promise = testForNoEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
       app.selfVideoStream.value = undefined
-      await expect(promise).toResolve()
-      app.selfVideoStream.value = videoStream
+      await nextTick()
+      expect(app.selfWebcamStream.value).not.toBeUndefined()
 
-      promise = testForNoEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
+      app.selfVideoStream.value = videoStream
+      await nextTick()
       app.selfAudioStream.value = undefined
-      await expect(promise).toResolve()
+      await nextTick()
+      expect(app.selfWebcamStream.value).not.toBeUndefined()
     })
   })
 
@@ -294,7 +281,7 @@ describe('WebcamApp', () => {
           video: false,
           audio: false
         }
-        await expect(app.requestCamera()).toResolve()
+        await expect(app.requestCamera()).resolves.not.toThrow()
         expect(app.selfVideoStream.value.getTracks()).toBeArrayOfSize(1)
         expect(app.selfAudioStream.value).toBe(null)
         expect(app.selfWebcamStream.value.getTracks()).toBeArrayOfSize(1)
@@ -611,8 +598,22 @@ describe('WebcamApp', () => {
       })
       test('Emits \'webcam-stream-update\'', async () => {
         const promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
-        await app.stopMicrophone()
+        await app.stopCamera()
         await expect(promise).toResolve()
+      })
+      test('Only emits one \'webcam-stream-update\'', async () => {
+        const stream = new FakeMediaStream(null, { numVideoTracks: 1, numAudioTracks: 1 })
+        const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
+        app.selfVideoStream.value = videoStream
+        app.selfAudioStream.value = audioStream
+        app.selfWebcamStream.value = stream
+
+        await nextTick()
+
+        app.emit = vi.fn()
+        await app.stopCamera()
+        await nextTick()
+        expect(app.emit).toHaveBeenCalledTimes(1)
       })
     })
 
@@ -637,6 +638,21 @@ describe('WebcamApp', () => {
         const promise = testForEvent(app, WebcamStreamUpdateEvent, { timeout: 100 })
         await app.stopMicrophone()
         await expect(promise).toResolve()
+      })
+
+      test('Only emits one \'webcam-stream-update\'', async () => {
+        const stream = new FakeMediaStream(null, { numVideoTracks: 1, numAudioTracks: 1 })
+        const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
+        app.selfVideoStream.value = videoStream
+        app.selfAudioStream.value = audioStream
+        app.selfWebcamStream.value = stream
+
+        await nextTick()
+
+        app.emit = vi.fn()
+        await app.stopMicrophone()
+        await nextTick()
+        expect(app.emit).toHaveBeenCalledTimes(1)
       })
     })
     describe('Preserve deviceId', () => {

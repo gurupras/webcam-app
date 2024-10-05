@@ -84,9 +84,6 @@ class WebcamApp {
       deep: true
     }))
 
-    this.watches.push(watch(this.selfWebcamStream, (v, o) => {
-      this.emit(WebcamStreamUpdateEvent, { newStream: v, oldStream: o })
-    }))
     this.watches.push(watch(this.selfVideoStream, (v, o) => {
       if (!v && !this.selfAudioStream.value) {
         this.selfWebcamStream.value = undefined
@@ -234,8 +231,11 @@ class WebcamApp {
       // We just requested camera
       this.selfVideoTrackEnabled.value = true
       const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
-      await this.updateVideoStream(videoStream)
-      await this.updateAudioStream(audioStream)
+      const configs = [
+        this.getUpdateVideoStreamData(videoStream),
+        this.getUpdateAudioStreamData(audioStream)
+      ]
+      await this.updateStreams(configs)
       // Ensure that the audio track is in the right state
       await nextTick()
       const audioTrack = stream.getAudioTracks()[0]
@@ -268,8 +268,11 @@ class WebcamApp {
       // We just requested microphone
       this.selfAudioTrackEnabled.value = true
       const { videoStream, audioStream } = ProxyMediaStream.splitStream(stream)
-      await this.updateVideoStream(videoStream)
-      await this.updateAudioStream(audioStream)
+      const configs = [
+        this.getUpdateVideoStreamData(videoStream),
+        this.getUpdateAudioStreamData(audioStream)
+      ]
+      await this.updateStreams(configs)
       // Ensure that the video track is in the right state
       await nextTick()
       const videoTrack = stream.getVideoTracks()[0]
@@ -365,53 +368,85 @@ class WebcamApp {
         const newStream = await navigator.mediaDevices.getUserMedia(newConstraints)
         this.lastUserMediaConstraints.value = newConstraints
         const { videoStream, audioStream } = ProxyMediaStream.splitStream(newStream)
-        await this.updateVideoStream(videoStream)
-        await this.updateAudioStream(audioStream)
+        const configs = [
+          this.getUpdateVideoStreamData(videoStream),
+          this.getUpdateAudioStreamData(audioStream)
+        ]
+        await this.updateStreams(configs)
         this.emit(WebcamStreamUpdateEvent)
       }
     }
   }
 
   updateVideoStream (stream) {
-    return this.updateStream({
-      name: 'selfVideoStream',
-      fn: 'getVideoTracks',
-      stream
-    })
+    const data = this.getUpdateVideoStreamData(stream)
+    return this.updateStreams(data)
   }
 
   updateAudioStream (stream) {
-    return this.updateStream({
+    const data = this.getUpdateAudioStreamData(stream)
+    return this.updateStreams(data)
+  }
+
+  getUpdateVideoStreamData (stream) {
+    return {
+      name: 'selfVideoStream',
+      fn: 'getVideoTracks',
+      stream
+    }
+  }
+
+  getUpdateAudioStreamData (stream) {
+    return {
       name: 'selfAudioStream',
       fn: 'getAudioTracks',
       stream
-    })
+    }
   }
 
-  async updateStream ({ name, fn, stream }) {
-    if (stream) {
-      this[name].value = new ProxyMediaStream(stream)
-    } else {
-      this[name].value = null
+  async updateStreams (configs) {
+    if (!Array.isArray(configs)) {
+      configs = [configs]
     }
-    const { selfWebcamStream } = this
-    const oldTracks = (selfWebcamStream.value && selfWebcamStream.value[fn]()) || []
-    let newTracks = (stream && stream[fn]()) || []
     const newWebcamStream = new ProxyMediaStream()
-    oldTracks.forEach(t => {
-      t.stop()
-      // TODO: This does not belong here
-      t.dispatchEvent(new CustomEvent('ended'))
+    const { selfWebcamStream } = this
+
+    // Collect all old tracks to stop and remove
+    const allOldTracks = []
+    configs.forEach(({ fn }) => {
+      const oldTracks = (selfWebcamStream.value && selfWebcamStream.value[fn]()) || []
+      oldTracks.forEach(t => {
+        t.stop()
+        t.dispatchEvent(new CustomEvent('ended'))
+      })
+      allOldTracks.push(...oldTracks)
     })
-    // console.log(`updateStream: ${name}: Stopped ${oldTracks.length}(${JSON.stringify(oldTracks.map(t => t.type))}) tracks`)
+
+    // Collect all new tracks from each config
+    const allNewTracks = []
+    configs.forEach(({ name, fn, stream }) => {
+      if (stream) {
+        this[name].value = new ProxyMediaStream(stream)
+        const newTracks = stream[fn]()
+        allNewTracks.push(...newTracks)
+      } else {
+        this[name].value = null
+      }
+    })
+
+    // Filter out the old tracks from the existing stream
     const allTracks = (selfWebcamStream.value && selfWebcamStream.value.getTracks()) || []
-    const filteredTracks = allTracks.filter(x => !oldTracks.includes(x))
-    newTracks = Array.from(new Set([...filteredTracks, ...newTracks]))
-    if (newTracks.length === 0) {
+    const filteredTracks = allTracks.filter(x => !allOldTracks.includes(x))
+
+    // Combine filtered existing tracks with new tracks, ensuring uniqueness
+    const combinedTracks = Array.from(new Set([...filteredTracks, ...allNewTracks]))
+
+    if (combinedTracks.length === 0) {
       this.selfWebcamStream.value = undefined
       return
     }
-    newTracks.forEach(t => newWebcamStream.addTrack(t))
+
+    combinedTracks.forEach(t => newWebcamStream.addTrack(t))
     await this.onStreamUpdated(newWebcamStream)
     this.selfWebcamStream.value = newWebcamStream
   }
